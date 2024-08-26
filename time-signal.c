@@ -51,7 +51,7 @@ void signaux(int sigtype)
 		default : printf ("\nUnknow %d",sigtype);
 		}
 	StopClock();
-	printf (" signal received - Programme terminé\n");
+	printf (" signal received - Program terminated\n");
 	exit(0);
 	}
 
@@ -81,7 +81,7 @@ signal(SIGINT,signaux);
 signal(SIGTERM,signaux);
 
 puts("time-signal, a JJY/MSF/WWVB/DCF77 radio transmitter");
-puts("Copyright (C) 2023 Pierre Brial");
+puts("Copyright (C) 2023-2024 Pierre Brial, Steve Matos");
 puts("This program comes with ABSOLUTELY NO WARRANTY.");
 puts("This is free software, and you are welcome to");
 puts("redistribute it under certain conditions.\n");
