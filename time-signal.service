@@ -1,0 +1,14 @@
+[Unit]
+Description=Time Signal Generator
+Documentation=https://github.com/steve1515/time-signal
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/bin/time-signal -s WWVB
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
