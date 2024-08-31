@@ -28,18 +28,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <inttypes.h>
-#include <fcntl.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <time.h>
-#include <unistd.h>
-#include <stdbool.h>
 
-bool GPIO_init();
+bool GpioInit();
 double StartClock(double requested_freq);
 void StopClock();
-void EnableClockOutput(bool on);  // Enable clock output on GPIO4
+void EnableClockOutput(bool on);

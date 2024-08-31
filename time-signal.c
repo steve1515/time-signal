@@ -27,7 +27,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sched.h>
 #include <signal.h>
 #include <string.h>
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
     return usage("Please choose a service name with -s option\n", argv[0]);
   }
 
-  GPIO_init();
+  GpioInit();
   StartClock(frequency);
 
   if (carrier_only)
@@ -166,7 +168,10 @@ int main(int argc, char *argv[])
   while (1)
   {
     if (carrier_only)
+    {
+      usleep(100);
       continue;
+    }
 
     localtime_r(&minute_start, &tv);
     strftime(date_string, sizeof(date_string), "%Y-%m-%d %H:%M:%S", &tv);
