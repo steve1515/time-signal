@@ -30,6 +30,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 bool GpioInit();
-double StartClock(double requested_freq);
+double StartClock(double requestedFrequency);
 void StopClock();
 void EnableClockOutput(bool on);

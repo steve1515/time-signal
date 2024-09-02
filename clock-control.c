@@ -34,6 +34,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdbool.h>
 #include <unistd.h>
 #include <inttypes.h>
+#include <string.h>
+#include <float.h>
 #include <math.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -88,8 +90,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define CLK_DIV_DIVI(x) ((x) << 12)
 #define CLK_DIV_DIVF(x) ((x) << 0)
 
+// Helper Macros
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
+
 
 static enum RaspberryPiModel GetPiModel();
+static void UpdateClockSourceFrequencies();
 static uint32_t *MapBcmRegister(off_t registerOffset);
 
 
@@ -103,133 +109,28 @@ enum RaspberryPiModel
   PI_MODEL_UNKNOWN
 };
 
-
-enum RaspberryPiModel _piModel;
-volatile uint32_t *_pGpioVirtMem;
-volatile uint32_t *_pClockVirtMem;
-
-
-bool GpioInit()
+typedef struct
 {
-  _piModel = GetPiModel();
-  if (_piModel == PI_MODEL_UNKNOWN)
+  int clockSource;        // Pi clock source number
+  char clockString[10];   // Pi clock source string
+  bool enableForUse;      // Enabled for use in this program
+  double clockFrequency;  // Clock frequency
+} CLOCK_SOURCE;
+
+
+static enum RaspberryPiModel _piModel;
+static volatile uint32_t *_pGpioVirtMem;
+static volatile uint32_t *_pClockVirtMem;
+
+// Reference: /sys/kernel/debug/clk/clk_summary
+static CLOCK_SOURCE _clockSources[] =
   {
-    fprintf(stderr, "Error: Raspberry Pi model not supported.\n");
-    return false;
-  }
-
-  _pGpioVirtMem = MapBcmRegister(GPIO_REGISTER_OFFSET);
-  if (_pGpioVirtMem == NULL)
-  {
-    fprintf(stderr, "Failed to map GPIO registers. Ensure program is run with root privileges.\n");
-    return false;
-  }
-
-  _pClockVirtMem = MapBcmRegister(CLOCK_REGISTER_OFFSET);
-  if (_pClockVirtMem == NULL)
-  {
-    fprintf(stderr, "Failed to map clock registers. Ensure program is run with root privileges.\n");
-    return false;
-  }
-  
-  return true;
-}
-
-
-double StartClock(double requested_freq)
-{
-  // Reference: https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf, Page 105
-
-  // Figure out best clock source to get closest to the requested frequency with MASH=1.
-  // We check starting from the highest frequency to find lowest jitter opportunity first.
-  struct { int src; double frequency; } kClockSources[] =
-    {
-      { 7, _piModel == PI_MODEL_4 ? 0       : 216.0e6 },  // HDMI  <- this can be problematic if monitor connected
-      //{ 5, _piModel == PI_MODEL_4 ? 750.0e6 : 500.0e6 },  // PLLD
-      { 1, _piModel == PI_MODEL_4 ? 54.0e6  : 19.2e6  },  // regular oscillator
-    };
-
-  int divI = -1;
-  int divF = -1;
-  int best_clock_source = -1;
-  double smallest_error_so_far = 1e9;
-
-  printf("Clock Sources:\n");
-  for (size_t i = 0; i < sizeof(kClockSources) / sizeof(kClockSources[0]); ++i)
-  {
-    printf("%d : ", kClockSources[i].src);
-
-    double division = kClockSources[i].frequency / requested_freq;
-    if (division < 2 || division > 4095)
-    {
-      puts("");
-      continue;
-    }
-
-    int test_divi = (int)division;
-    int test_divf = (division - test_divi) * 1024;
-    double freq = kClockSources[i].frequency / (test_divi + test_divf / 1024.0);
-    double error = fabsl(requested_freq - freq);
-
-    printf("freq = %.4f error = %.4f\n", freq, error);
-    if (error >= smallest_error_so_far)
-      continue;
-    
-    smallest_error_so_far = error;
-    best_clock_source = i;
-    divI = test_divi;
-    divF = test_divf;
-  }
-
-  if (divI < 0)
-    return -1.0;  // Couldn't find any suitable clock.
-
-  StopClock();
-
-  const uint32_t ctl  = CLK_GP0CTL;
-  const uint32_t div  = CLK_GP0DIV;
-  const uint32_t src  = kClockSources[best_clock_source].src;
-  const uint32_t mash = 1;  // Good approximation, low jitter.
-
-  _pClockVirtMem[div] = CLK_PASSWD | CLK_DIV_DIVI(divI) | CLK_DIV_DIVF(divF);
-  usleep(10);
-  _pClockVirtMem[ctl] = CLK_PASSWD | CLK_CTL_MASH(mash) | CLK_CTL_SRC(src);
-  usleep(10);
-  _pClockVirtMem[ctl] |= CLK_PASSWD | CLK_CTL_ENAB;
-
-  // EnableClockOutput(true);
-
-  // There have been reports of different clock source frequencies.
-  // This helps figuring out which source was picked.
-  printf("\nChoose clock %d at %gHz / %.3f = %.3f\n\n",
-         kClockSources[best_clock_source].src,
-         kClockSources[best_clock_source].frequency,
-         divI + divF / 1024.0,
-         kClockSources[best_clock_source].frequency / (divI + divF / 1024.0));
-
-  return kClockSources[best_clock_source].frequency / (divI + divF / 1024.0);
-}
-
-
-void StopClock()
-{
-  *(_pClockVirtMem + CLK_GP0CTL) = CLK_PASSWD | (*(_pClockVirtMem + CLK_GP0CTL) & ~CLK_CTL_ENAB);
-
-  // Wait until clock confirms not to be busy anymore
-  while (*(_pClockVirtMem + CLK_GP0CTL) & CLK_CTL_BUSY)
-    usleep(10);
-
-  EnableClockOutput(false);
-}
-
-
-void EnableClockOutput(bool on)
-{
-  if (on)
-    GPIO_ALT0(4);  // Pinmux GPIO4 into outputting clock.
-  else
-    GPIO_INPUT(4);
-}
+    { 1, "osc",      true,  0 },  // Oscillator (19.2 MHz Pi1-3 / 54.0 MHz Pi4)
+    { 4, "plla_per", false, 0 },  // PLLA Per (Changes with audio usage.)
+    { 5, "pllc_per", false, 0 },  // PLLC Per (Changes with core clock.)
+    { 6, "plld_per", true,  0 },  // PLLD Per (500 MHz Pi1-3 / 750 MHz Pi4)
+    { 7, "pllh_aux", true,  0 },  // PLLH Aux / HDMI (216 MHz - Changes with display mode.)
+  };
 
 
 static enum RaspberryPiModel GetPiModel()
@@ -315,6 +216,51 @@ static enum RaspberryPiModel GetPiModel()
 }
 
 
+static void UpdateClockSourceFrequencies()
+{
+  char buffer[1024];
+  FILE *fp;
+  char *line = NULL;
+  size_t len = 0;
+  double freqValue = 0;
+
+  for (size_t i = 0; i < ARRAY_LENGTH(_clockSources); i++)
+  {
+    strcpy(buffer, "/sys/kernel/debug/clk/");
+    strcat(buffer, _clockSources[i].clockString);
+    strcat(buffer, "/clk_rate");
+
+    fp = fopen(buffer, "r");
+    if (fp == NULL)
+    {
+      _clockSources[i].clockFrequency = 0;
+      continue;
+    }
+
+    if (getline(&line, &len, fp) == -1)
+    {
+      _clockSources[i].clockFrequency = 0;
+      fclose(fp);
+      free(line);
+      continue;
+    }
+
+    if (sscanf(line, "%lf", &freqValue) < 1)
+    {
+      _clockSources[i].clockFrequency = 0;
+      fclose(fp);
+      free(line);
+      continue;
+    }
+
+    _clockSources[i].clockFrequency = freqValue;
+
+    fclose(fp);
+    free(line);
+  }
+}
+
+
 static uint32_t *MapBcmRegister(off_t registerOffset)
 {
   off_t baseAddress = 0;
@@ -365,4 +311,131 @@ static uint32_t *MapBcmRegister(off_t registerOffset)
   }
 
   return pVirtMem;
+}
+
+
+bool GpioInit()
+{
+  _piModel = GetPiModel();
+  if (_piModel == PI_MODEL_UNKNOWN)
+  {
+    fprintf(stderr, "Error: Raspberry Pi model not supported.\n");
+    return false;
+  }
+
+  _pGpioVirtMem = MapBcmRegister(GPIO_REGISTER_OFFSET);
+  if (_pGpioVirtMem == NULL)
+  {
+    fprintf(stderr, "Failed to map GPIO registers. Ensure program is run with root privileges.\n");
+    return false;
+  }
+
+  _pClockVirtMem = MapBcmRegister(CLOCK_REGISTER_OFFSET);
+  if (_pClockVirtMem == NULL)
+  {
+    fprintf(stderr, "Failed to map clock registers. Ensure program is run with root privileges.\n");
+    return false;
+  }
+  
+  return true;
+}
+
+
+double StartClock(double requestedFrequency)
+{
+  // Reference: https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf, Page 105
+
+  // Find the best clock source to get closest to the requested frequency (lowest error) with MASH=1.
+  // When error is equal, we favor the highest frequency clock in order to have the lowest jitter.
+
+  UpdateClockSourceFrequencies();
+
+  int bestClockSourceIndex = -1;
+  double bestError = DBL_MAX;
+  double bestSourceFreq = 0;
+  int divI = -1;
+  int divF = -1;
+
+  printf("Clock Sources:\n");
+  for (size_t i = 0; i < ARRAY_LENGTH(_clockSources); i++)
+  {
+    printf("%-1d - %-8s - %-8s - %9.4lf MHz : ",
+           _clockSources[i].clockSource,
+           _clockSources[i].clockString,
+           _clockSources[i].enableForUse ? "Enabled" : "Disabled",
+           _clockSources[i].clockFrequency / 1e6);
+
+    double division = _clockSources[i].clockFrequency / requestedFrequency;
+    if (division < 2 || division > 4095)
+    {
+      printf("Not Suitable\n");
+      continue;
+    }
+
+    int testDivI = (int)division;
+    int testDivF = (division - testDivI) * 1024;
+    double resultFreq = _clockSources[i].clockFrequency / (testDivI + testDivF / 1024.0);
+    double error = fabsl(requestedFrequency - resultFreq);
+
+    printf("Result = %.4lf Hz, Error = %.4lf Hz\n", resultFreq, error);
+    if (error > bestError ||
+       (error == bestError && _clockSources[i].clockFrequency <= bestSourceFreq))
+    {
+      continue;
+    }
+    
+    bestClockSourceIndex = i;
+    bestError = error;
+    bestSourceFreq = _clockSources[i].clockFrequency;
+    divI = testDivI;
+    divF = testDivF;
+  }
+  printf("\n");
+
+  if (bestClockSourceIndex < 0)
+    return -1.0;  // Unable to find any suitable clock source
+
+  StopClock();
+
+  uint32_t src  = _clockSources[bestClockSourceIndex].clockSource;
+  uint32_t mash = 1;  // Good approximation, low jitter
+
+  *(_pClockVirtMem + CLK_GP0DIV) = CLK_PASSWD | CLK_DIV_DIVI(divI) | CLK_DIV_DIVF(divF);
+  usleep(10);
+  *(_pClockVirtMem + CLK_GP0CTL) = CLK_PASSWD | CLK_CTL_MASH(mash) | CLK_CTL_SRC(src);
+  usleep(10);
+  *(_pClockVirtMem + CLK_GP0CTL) |= CLK_PASSWD | CLK_CTL_ENAB;
+
+  printf("Choose clock %d at %.4lf MHz / %.4lf = %.4lf Hz\n\n",
+         _clockSources[bestClockSourceIndex].clockSource,
+         _clockSources[bestClockSourceIndex].clockFrequency / 1e6,
+         divI + divF / 1024.0,
+         _clockSources[bestClockSourceIndex].clockFrequency / (divI + divF / 1024.0));
+
+  return _clockSources[bestClockSourceIndex].clockFrequency / (divI + divF / 1024.0);
+}
+
+
+void StopClock()
+{
+  *(_pClockVirtMem + CLK_GP0CTL) = CLK_PASSWD | (*(_pClockVirtMem + CLK_GP0CTL) & ~CLK_CTL_ENAB);
+
+  // Wait until clock confirms not to be busy anymore
+  while (*(_pClockVirtMem + CLK_GP0CTL) & CLK_CTL_BUSY)
+    usleep(10);
+
+  EnableClockOutput(false);
+}
+
+
+void EnableClockOutput(bool on)
+{
+  if (on)
+  {
+    GPIO_ALT0(4);  // Pinmux GPIO4 into outputting clock
+  }
+  else
+  {
+    GPIO_INPUT(4);
+  }
 }
