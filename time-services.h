@@ -1,6 +1,6 @@
 /*
 time-services.h - part of time-signal
-JJY/MSF/WWVB/DCF77 radio transmitter for Raspberry Pi
+DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 
 Copyright (C) 2024 Steve Matos
 Source: https://github.com/steve1515/time-signal
@@ -28,19 +28,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <time.h>
-#include <stdio.h>
 
-enum time_service
+#include <stdint.h>
+#include <time.h>
+
+enum TimeService
 {
-  JJY,
   DCF77,
-  WWVB,
-  MSF
+  JJY,
+  MSF,
+  WWVB
 };
 
-uint64_t prepareMinute(enum time_service service, time_t t);
-int getModulationForSecond(enum time_service service, uint64_t time_bits, int sec);
+uint64_t prepare_minute(enum TimeService service, time_t t);
+int get_modulation_for_second(enum TimeService service, uint64_t timeBits, int sec);

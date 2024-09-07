@@ -1,6 +1,6 @@
 /*
 clock-control.c - part of time-signal
-JJY/MSF/WWVB/DCF77 radio transmitter for Raspberry Pi
+DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 
 Copyright (C) 2024 Steve Matos
 Source: https://github.com/steve1515/time-signal
@@ -94,9 +94,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
 
 
-static enum RaspberryPiModel GetPiModel();
-static void UpdateClockSourceFrequencies();
-static uint32_t *MapBcmRegister(off_t registerOffset);
+static enum RaspberryPiModel get_pi_model();
+static void update_clock_source_frequencies();
+static uint32_t *map_bcm_register(off_t registerOffset);
 
 
 enum RaspberryPiModel
@@ -133,7 +133,7 @@ static CLOCK_SOURCE _clockSources[] =
   };
 
 
-static enum RaspberryPiModel GetPiModel()
+static enum RaspberryPiModel get_pi_model()
 {
   FILE *fp;
   char *line = NULL;
@@ -216,7 +216,7 @@ static enum RaspberryPiModel GetPiModel()
 }
 
 
-static void UpdateClockSourceFrequencies()
+static void update_clock_source_frequencies()
 {
   char buffer[1024];
   FILE *fp;
@@ -261,7 +261,7 @@ static void UpdateClockSourceFrequencies()
 }
 
 
-static uint32_t *MapBcmRegister(off_t registerOffset)
+static uint32_t *map_bcm_register(off_t registerOffset)
 {
   off_t baseAddress = 0;
   switch (_piModel)
@@ -314,23 +314,23 @@ static uint32_t *MapBcmRegister(off_t registerOffset)
 }
 
 
-bool GpioInit()
+bool gpio_init()
 {
-  _piModel = GetPiModel();
+  _piModel = get_pi_model();
   if (_piModel == PI_MODEL_UNKNOWN)
   {
     fprintf(stderr, "Error: Raspberry Pi model not supported.\n");
     return false;
   }
 
-  _pGpioVirtMem = MapBcmRegister(GPIO_REGISTER_OFFSET);
+  _pGpioVirtMem = map_bcm_register(GPIO_REGISTER_OFFSET);
   if (_pGpioVirtMem == NULL)
   {
     fprintf(stderr, "Failed to map GPIO registers. Ensure program is run with root privileges.\n");
     return false;
   }
 
-  _pClockVirtMem = MapBcmRegister(CLOCK_REGISTER_OFFSET);
+  _pClockVirtMem = map_bcm_register(CLOCK_REGISTER_OFFSET);
   if (_pClockVirtMem == NULL)
   {
     fprintf(stderr, "Failed to map clock registers. Ensure program is run with root privileges.\n");
@@ -341,14 +341,14 @@ bool GpioInit()
 }
 
 
-double StartClock(double requestedFrequency)
+double start_clock(double requestedFrequency)
 {
   // Reference: https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf, Page 105
 
   // Find the best clock source to get closest to the requested frequency (lowest error) with MASH=1.
   // When error is equal, we favor the highest frequency clock in order to have the lowest jitter.
 
-  UpdateClockSourceFrequencies();
+  update_clock_source_frequencies();
 
   int bestClockSourceIndex = -1;
   double bestError = DBL_MAX;
@@ -395,7 +395,7 @@ double StartClock(double requestedFrequency)
   if (bestClockSourceIndex < 0)
     return -1.0;  // Unable to find any suitable clock source
 
-  StopClock();
+  stop_clock();
 
   uint32_t src  = _clockSources[bestClockSourceIndex].clockSource;
   uint32_t mash = 1;  // Good approximation, low jitter
@@ -416,7 +416,7 @@ double StartClock(double requestedFrequency)
 }
 
 
-void StopClock()
+void stop_clock()
 {
   *(_pClockVirtMem + CLK_GP0CTL) = CLK_PASSWD | (*(_pClockVirtMem + CLK_GP0CTL) & ~CLK_CTL_ENAB);
 
@@ -424,11 +424,11 @@ void StopClock()
   while (*(_pClockVirtMem + CLK_GP0CTL) & CLK_CTL_BUSY)
     usleep(10);
 
-  EnableClockOutput(false);
+  enable_clock_output(false);
 }
 
 
-void EnableClockOutput(bool on)
+void enable_clock_output(bool on)
 {
   if (on)
   {

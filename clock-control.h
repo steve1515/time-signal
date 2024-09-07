@@ -1,6 +1,6 @@
 /*
 clock-control.h - part of time-signal
-JJY/MSF/WWVB/DCF77 radio transmitter for Raspberry Pi
+DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 
 Copyright (C) 2024 Steve Matos
 Source: https://github.com/steve1515/time-signal
@@ -29,7 +29,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
-bool GpioInit();
-double StartClock(double requestedFrequency);
-void StopClock();
-void EnableClockOutput(bool on);
+#include <stdbool.h>
+
+bool gpio_init();
+double start_clock(double requestedFrequency);
+void stop_clock();
+void enable_clock_output(bool on);

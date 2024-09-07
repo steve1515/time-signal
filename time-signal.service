@@ -1,5 +1,5 @@
 [Unit]
-Description=Time Signal Generator
+Description=DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 Documentation=https://github.com/steve1515/time-signal
 Wants=network-online.target
 After=network-online.target

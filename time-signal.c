@@ -1,5 +1,5 @@
 /*
-time-signal.c - JJY/MSF/WWVB/DCF77 radio transmitter for Raspberry Pi
+time-signal.c - DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 
 Copyright (C) 2024 Steve Matos
 Source: https://github.com/steve1515/time-signal
@@ -27,12 +27,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sched.h>
 #include <signal.h>
 #include <string.h>
+#include <time.h>
 #include <getopt.h>
 #include "time-services.h"
 #include "clock-control.h"
@@ -70,7 +72,7 @@ void signaux(int sigtype)
     printf("\nUnknow %d", sigtype);
   }
 
-  StopClock();
+  stop_clock();
   printf(" signal received - Program terminated\n");
   exit(0);
 }
@@ -89,7 +91,7 @@ int main(int argc, char *argv[])
   char *time_source  = "";
   char date_string[] = "1969-07-21 00:00:00";
 
-  enum time_service service;
+  enum TimeService service;
   time_t now, minute_start;
   struct timespec target_wait;
   struct tm tv;
@@ -151,11 +153,11 @@ int main(int argc, char *argv[])
     return usage("Please choose a service name with -s option\n", argv[0]);
   }
 
-  GpioInit();
-  StartClock(frequency);
+  gpio_init();
+  start_clock(frequency);
 
   if (carrier_only)
-    EnableClockOutput(1);
+    enable_clock_output(1);
 
   // Give max priority to this programm
   struct sched_param sp;
@@ -177,11 +179,13 @@ int main(int argc, char *argv[])
     strftime(date_string, sizeof(date_string), "%Y-%m-%d %H:%M:%S", &tv);
     printf("%s\n", date_string);
 
-    minute_bits = prepareMinute(service, minute_start);
+    minute_bits = prepare_minute(service, minute_start);
 
     for (int second = 0; second < 60; ++second)
     {
-      modulation = getModulationForSecond(service, minute_bits, second);
+      modulation = get_modulation_for_second(service, minute_bits, second);
+      if (modulation < 0)
+        exit(0);
 
       // First, let's wait until we reach the beginning of that second
       target_wait.tv_sec = minute_start + second;
@@ -189,9 +193,9 @@ int main(int argc, char *argv[])
       clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &target_wait, NULL);
 
       if (service == JJY)
-        EnableClockOutput(1);  // Set signal to HIGH
+        enable_clock_output(1);  // Set signal to HIGH
       else
-        EnableClockOutput(0);  // Set signal to LOW
+        enable_clock_output(0);  // Set signal to LOW
 
       if (verbose)
       {
@@ -205,9 +209,9 @@ int main(int argc, char *argv[])
       clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &target_wait, NULL);
 
       if (service == JJY)
-        EnableClockOutput(0);  // signal to LOW
+        enable_clock_output(0);  // signal to LOW
       else
-        EnableClockOutput(1);  // Set signal to HIGH
+        enable_clock_output(1);  // Set signal to HIGH
     }
 
     minute_start += 60;
