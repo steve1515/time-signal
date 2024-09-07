@@ -10,7 +10,7 @@ CC          := gcc
 CPPFLAGS    := -I$(INC_DIR) -MMD -MP
 CFLAGS      := -Wall -O2
 LDFLAGS     := -s -no-pie
-LDLIBS      := 
+LDLIBS      := -lm
 
 SRC := $(wildcard $(SRC_DIR)/*.c)
 OBJ := $(SRC:$(SRC_DIR)/%.c=$(OBJ_DIR)/%.o)
