@@ -180,12 +180,18 @@ int main(int argc, char *argv[])
     printf("%s\n", date_string);
 
     minute_bits = prepare_minute(service, minute_start);
+    if (minute_bits == ((uint64_t)-1))
+    {
+      exit(0);
+    }
 
     for (int second = 0; second < 60; ++second)
     {
       modulation = get_modulation_for_second(service, minute_bits, second);
       if (modulation < 0)
+      {
         exit(0);
+      }
 
       // First, let's wait until we reach the beginning of that second
       target_wait.tv_sec = minute_start + second;

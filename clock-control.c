@@ -101,12 +101,12 @@ static uint32_t *map_bcm_register(off_t registerOffset);
 
 enum RaspberryPiModel
 {
-  PI_MODEL_1,
-  PI_MODEL_2,
-  PI_MODEL_3,
-  PI_MODEL_4,
-  PI_MODEL_5,
-  PI_MODEL_UNKNOWN
+  PI_MODEL_1 = 1,
+  PI_MODEL_2 = 2,
+  PI_MODEL_3 = 3,
+  PI_MODEL_4 = 4,
+  PI_MODEL_5 = 5,
+  PI_MODEL_UNKNOWN = -1
 };
 
 typedef struct

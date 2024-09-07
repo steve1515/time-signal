@@ -40,5 +40,5 @@ enum TimeService
   WWVB
 };
 
-uint64_t prepare_minute(enum TimeService service, time_t t);
+uint64_t prepare_minute(enum TimeService service, time_t currentTime);
 int get_modulation_for_second(enum TimeService service, uint64_t timeBits, int sec);
