@@ -237,6 +237,8 @@ static void update_clock_source_frequencies()
       continue;
     }
 
+    line = NULL;
+    len = 0;
     if (getline(&line, &len, fp) == -1)
     {
       _clockSources[i].clockFrequency = 0;
@@ -341,7 +343,7 @@ bool gpio_init()
 }
 
 
-double start_clock(double requestedFrequency)
+double start_clock(uint32_t requestedFrequency)
 {
   // Reference: https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf, Page 105
 
@@ -365,7 +367,7 @@ double start_clock(double requestedFrequency)
            _clockSources[i].enableForUse ? "Enabled" : "Disabled",
            _clockSources[i].clockFrequency / 1e6);
 
-    double division = _clockSources[i].clockFrequency / requestedFrequency;
+    double division = _clockSources[i].clockFrequency / (double)requestedFrequency;
     if (division < 2 || division > 4095)
     {
       printf("Not Suitable\n");
@@ -375,7 +377,7 @@ double start_clock(double requestedFrequency)
     int testDivI = (int)division;
     int testDivF = (division - testDivI) * 1024;
     double resultFreq = _clockSources[i].clockFrequency / (testDivI + testDivF / 1024.0);
-    double error = fabsl(requestedFrequency - resultFreq);
+    double error = fabsl((double)requestedFrequency - resultFreq);
 
     printf("Result = %.4lf Hz, Error = %.4lf Hz\n", resultFreq, error);
     if (error > bestError ||

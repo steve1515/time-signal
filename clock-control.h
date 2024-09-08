@@ -29,9 +29,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
+#include <stdint.h>
 #include <stdbool.h>
 
 bool gpio_init();
-double start_clock(double requestedFrequency);
+double start_clock(uint32_t requestedFrequency);
 void stop_clock();
 void enable_clock_output(bool on);

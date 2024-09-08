@@ -8,8 +8,8 @@ INSTALL_DIR := /usr/local/bin
 
 CC          := gcc
 CPPFLAGS    := -I$(INC_DIR) -MMD -MP
-CFLAGS      := -Wall -O2
-LDFLAGS     := -s -no-pie
+CFLAGS      := -Wall -O2 -pthread
+LDFLAGS     := -s -no-pie -pthread
 LDLIBS      := -lm
 
 SRC := $(wildcard $(SRC_DIR)/*.c)

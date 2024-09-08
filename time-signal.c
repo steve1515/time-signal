@@ -30,196 +30,340 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include <unistd.h>
-#include <sched.h>
 #include <signal.h>
+#include <sched.h>
+#include <sys/mman.h>
+#include <pthread.h>
 #include <string.h>
 #include <time.h>
 #include <getopt.h>
-#include "time-services.h"
 #include "clock-control.h"
+#include "time-services.h"
 
 
-int usage(const char *msg, const char *progname)
+void print_usage(const char *programName);
+void sig_handler(int sigNum);
+static void *thread_carrier_only(void *arg);
+static void *thread_time_signal(void *arg);
+
+
+typedef struct
 {
-  fprintf(stderr,
-          "%susage: %s [options]\n"
-          "Options:\n"
-          "\t-s <service>          : Service; one of "
-          "'DCF77', 'WWVB', 'JJY40', 'JJY60', 'MSF'\n"
-          "\t-v                    : Verbose.\n"
-          "\t-c                    : Carrier wave only.\n"
-          "\t-h                    : This help.\n",
-          msg,
-          progname);
-  return 1;
-}
+  enum TimeService timeService;
+  uint32_t carrierFrequency;
+} THREAD_DATA;
 
 
-void signaux(int sigtype)
-{
-  switch (sigtype)
-  {
-  case SIGINT:
-    printf("\nSIGINT");
-    break;
-
-  case SIGTERM:
-    printf("\nSIGTERM");
-    break;
-
-  default:
-    printf("\nUnknow %d", sigtype);
-  }
-
-  stop_clock();
-  printf(" signal received - Program terminated\n");
-  exit(0);
-}
+volatile uint8_t _verbosityLevel = 0;
+volatile sig_atomic_t _threadRun = 0;
 
 
 int main(int argc, char *argv[])
 {
-  bool verbose = false;
-  bool carrier_only = false;
+  struct sigaction sigAction = { 0 };
+  sigAction.sa_handler = sig_handler;
+  sigaction(SIGINT, &sigAction, NULL);
+  sigaction(SIGTERM, &sigAction, NULL);
 
-  int modulation;
-  int frequency = 60000;
-  int opt;
 
-  uint64_t minute_bits;
-  char *time_source  = "";
-  char date_string[] = "1969-07-21 00:00:00";
-
-  enum TimeService service;
-  time_t now, minute_start;
-  struct timespec target_wait;
-  struct tm tv;
-
-  signal(SIGINT, signaux);
-  signal(SIGTERM, signaux);
-
-  puts("time-signal - JJY/MSF/WWVB/DCF77 radio transmitter");
-  puts("Copyright (C) 2024 Steve Matos");
-  puts("This program comes with ABSOLUTELY NO WARRANTY.");
-  puts("This is free software, and you are welcome to");
-  puts("redistribute it under certain conditions.\n");
-
-  while ((opt = getopt(argc, argv, "vs:hc")) != -1)
+  int c;
+  bool optCarrierOnly = false;
+  char *optTimeSource = "";
+  while ((c = getopt(argc, argv, "s:cvh")) != -1)
   {
-    switch (opt)
+    switch (c)
     {
-    case 'v':
-      verbose = true;
+      case 's':
+        optTimeSource = optarg;
+        break;
+
+      case 'c':
+        optCarrierOnly = true;
+        break;
+
+      case 'v':
+        _verbosityLevel++;
+        break;
+
+      case 'h':
+      default:
+        print_usage(argv[0]);
+        return EXIT_SUCCESS;
+    }
+  }
+
+
+  THREAD_DATA threadData = { 0 };
+  if      (!strcasecmp(optTimeSource, "DCF77")) { threadData.timeService = DCF77; threadData.carrierFrequency = 77500; }
+  else if (!strcasecmp(optTimeSource, "JJY40")) { threadData.timeService = JJY;   threadData.carrierFrequency = 40000; }
+  else if (!strcasecmp(optTimeSource, "JJY60")) { threadData.timeService = JJY;   threadData.carrierFrequency = 60000; }
+  else if (!strcasecmp(optTimeSource, "MSF"))   { threadData.timeService = MSF;   threadData.carrierFrequency = 60000; }
+  else if (!strcasecmp(optTimeSource, "WWVB"))  { threadData.timeService = WWVB;  threadData.carrierFrequency = 60000; }
+  else
+  {
+    fprintf(stderr, "Invalid time service selected.\n\n");
+    print_usage(argv[0]);
+    return EXIT_FAILURE;
+  }
+
+
+  printf("time-signal - DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi\n");
+  printf("Copyright (C) 2024 Steve Matos\n");
+  printf("This program comes with ABSOLUTELY NO WARRANTY.\n");
+  printf("This is free software, and you are welcome to\n");
+  printf("redistribute it under certain conditions.\n\n");
+
+
+  struct sched_param schedParam = { 0 };
+  pthread_attr_t threadAttr;
+  pthread_t threadId;
+
+  if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1)
+  {
+     perror("Failed to lock memory");
+     return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_init(&threadAttr))
+  {
+    fprintf(stderr, "Failed to initialize thread attributes object.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_setstacksize(&threadAttr, PTHREAD_STACK_MIN))
+  {
+    fprintf(stderr, "Failed to set thread stack size.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_setschedpolicy(&threadAttr, SCHED_FIFO))
+  {
+    fprintf(stderr, "Failed to set thread scheduling policy.\n");
+    return EXIT_FAILURE;
+  }
+
+  if ((schedParam.sched_priority = sched_get_priority_max(SCHED_FIFO)) == -1)
+  {
+     perror("Failed to get maximum scheduling priority value");
+     return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_setschedparam(&threadAttr, &schedParam))
+  {
+    fprintf(stderr, "Failed to set thread scheduling parameters.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_setinheritsched(&threadAttr, PTHREAD_EXPLICIT_SCHED))
+  {
+    fprintf(stderr, "Failed to set thread inherit-scheduler attribute.\n");
+    return EXIT_FAILURE;
+  }
+
+  _threadRun = 1;
+  int pthreadResult = 0;
+  if (optCarrierOnly)
+    pthreadResult = pthread_create(&threadId, &threadAttr, thread_carrier_only, (void*)&threadData);
+  else
+    pthreadResult = pthread_create(&threadId, &threadAttr, thread_time_signal, (void*)&threadData);
+
+  if (pthreadResult)
+  {
+    fprintf(stderr, "Failed to create execution thread. Ensure program is run with root privileges.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pthread_attr_destroy(&threadAttr))
+  {
+    fprintf(stderr, "Failed to destroy thread attributes object.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (pthread_join(threadId, NULL))
+  {
+    fprintf(stderr, "Failed to join thread.\n");
+    return EXIT_FAILURE;
+  }
+
+  if (munlockall() == -1)
+  {
+     perror("Failed to unlock memory");
+     return EXIT_FAILURE;
+  }
+
+  printf("Program terminated.\n");
+}
+
+
+void print_usage(const char *programName)
+{
+  printf("Usage: %s [options]\n"
+         "Options:\n"
+         "  -s <service>   Time service. ('DCF77', 'JJY40', 'JJY60', 'MSF', or 'WWVB')\n"
+         "  -c             Output carrier wave only.\n"
+         "  -v             Verbose. (Add multiple times for more verbosity. e.g. -vv)\n"
+         "  -h             Print this message and exit.\n",
+         programName);
+}
+
+
+void sig_handler(int sigNum)
+{
+  switch (sigNum)
+  {
+    case SIGINT:
+      printf("\nReceived SIGINT signal. Terminating...\n");
+      _threadRun = 0;
       break;
 
-    case 's':
-      time_source = optarg;
-      break;
-
-    case 'c':
-      carrier_only = true;
+    case SIGTERM:
+      printf("\nReceived SIGTERM signal. Terminating...\n");
+      _threadRun = 0;
       break;
 
     default:
-      return usage("", argv[0]);
-    }
+      printf("\nReceived unknown signal (%d).\n", sigNum);
+      break;
+  }
+}
+
+
+static void *thread_carrier_only(void *arg)
+{
+  THREAD_DATA threadData = *(THREAD_DATA*)arg;
+
+  printf("Starting carrier only thread...\n");
+
+  if (!gpio_init())
+  {
+    fprintf(stderr, "Failed to initialize GPIO.\n");
+    _threadRun = 0;
+    pthread_exit(NULL);
   }
 
-  if (strcasecmp(time_source, "DCF77") == 0)
+  if (start_clock(threadData.carrierFrequency) <= 0)
   {
-    frequency = 77500;
-    service   = DCF77;
-  }
-  else if (strcasecmp(time_source, "WWVB") == 0)
-  {
-    service = WWVB;
-  }
-  else if (strcasecmp(time_source, "JJY40") == 0)
-  {
-    frequency = 40000;
-    service   = JJY;
-  }
-  else if (strcasecmp(time_source, "JJY60") == 0)
-  {
-    service = JJY;
-  }
-  else if (strcasecmp(time_source, "MSF") == 0)
-  {
-    service = MSF;
-  }
-  else
-  {
-    return usage("Please choose a service name with -s option\n", argv[0]);
+    fprintf(stderr, "Failed to start clock.\n");
+    _threadRun = 0;
+    pthread_exit(NULL);
   }
 
-  gpio_init();
-  start_clock(frequency);
+  enable_clock_output(true);
 
-  if (carrier_only)
-    enable_clock_output(1);
-
-  // Give max priority to this programm
-  struct sched_param sp;
-  sp.sched_priority = 99;
-  sched_setscheduler(0, SCHED_FIFO, &sp);
-
-  now = time(NULL);
-  minute_start = now - now % 60;  // round to minute
-
-  while (1)
+  while (_threadRun)
   {
-    if (carrier_only)
+    usleep(100);
+  }
+
+  printf("Stopping thread...\n");
+  enable_clock_output(false);
+  stop_clock();
+
+  pthread_exit(NULL);
+}
+
+
+static void *thread_time_signal(void *arg)
+{
+  THREAD_DATA threadData = *(THREAD_DATA*)arg;
+  time_t currentTime;
+  time_t minuteStart;
+  uint64_t minuteBits;
+  int modulation;
+  struct timespec targetWait;
+
+  printf("Starting time signal thread...\n");
+
+  if (!gpio_init())
+  {
+    fprintf(stderr, "Failed to initialize GPIO.\n");
+    _threadRun = 0;
+    pthread_exit(NULL);
+  }
+
+  if (start_clock(threadData.carrierFrequency) <= 0)
+  {
+    fprintf(stderr, "Failed to start clock.\n");
+    _threadRun = 0;
+    pthread_exit(NULL);
+  }
+
+  enable_clock_output(false);
+
+  currentTime = time(NULL);
+  minuteStart = currentTime - (currentTime % 60);  // Round down to start of minute
+
+  while (_threadRun)
+  {
+    if (_verbosityLevel >= 1)
     {
-      usleep(100);
-      continue;
+      struct tm timeValue;
+      char dateString[] = "1970-01-01 00:00:00";
+      localtime_r(&minuteStart, &timeValue);
+      strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeValue);
+      printf("%s\n", dateString);
+      fflush(stdout);
     }
 
-    localtime_r(&minute_start, &tv);
-    strftime(date_string, sizeof(date_string), "%Y-%m-%d %H:%M:%S", &tv);
-    printf("%s\n", date_string);
-
-    minute_bits = prepare_minute(service, minute_start);
-    if (minute_bits == ((uint64_t)-1))
+    minuteBits = prepare_minute(threadData.timeService, minuteStart);
+    if (minuteBits == (uint64_t)-1)
     {
-      exit(0);
+      fprintf(stderr, "Error preparing minute bits.\n");
+      _threadRun = 0;
+      break;
     }
 
-    for (int second = 0; second < 60; ++second)
+    for (int second = 0; second < 60; second++)
     {
-      modulation = get_modulation_for_second(service, minute_bits, second);
+      if (!_threadRun)
+        break;
+
+      modulation = get_modulation_for_second(threadData.timeService, minuteBits, second);
       if (modulation < 0)
       {
-        exit(0);
+        fprintf(stderr, "Error getting modulation time.\n");
+        _threadRun = 0;
+        break;
       }
 
-      // First, let's wait until we reach the beginning of that second
-      target_wait.tv_sec = minute_start + second;
-      target_wait.tv_nsec = 0;
-      clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &target_wait, NULL);
+      // Wait until we reach the beginning of the current second
+      targetWait.tv_sec = minuteStart + second;
+      targetWait.tv_nsec = 0;
+      clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &targetWait, NULL);
 
-      if (service == JJY)
-        enable_clock_output(1);  // Set signal to HIGH
+      if (threadData.timeService == JJY)
+        enable_clock_output(true);
       else
-        enable_clock_output(0);  // Set signal to LOW
+        enable_clock_output(false);
 
-      if (verbose)
+      if (_verbosityLevel >= 2)
       {
-        fprintf(stderr, "%03d ", modulation);
+        printf("%03d ", modulation);
 
         if ((second + 1) % 15 == 0)
-          fprintf(stderr, "\n");
+          printf("\n");
+
+        fflush(stdout);
       }
 
-      target_wait.tv_nsec = modulation * 1e6;
-      clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &target_wait, NULL);
+      targetWait.tv_nsec = modulation * 1e6;
+      clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &targetWait, NULL);
 
-      if (service == JJY)
-        enable_clock_output(0);  // signal to LOW
+      if (threadData.timeService == JJY)
+        enable_clock_output(false);
       else
-        enable_clock_output(1);  // Set signal to HIGH
+        enable_clock_output(true);
     }
 
-    minute_start += 60;
+    minuteStart += 60;
   }
+
+  printf("Stopping thread...\n");
+  enable_clock_output(false);
+  stop_clock();
+
+  pthread_exit(NULL);
 }
