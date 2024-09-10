@@ -39,15 +39,15 @@ sudo ./time-signal [options]
 
 ### Options
 
-`-s <service>` Time service. One of DCF77, JJY40, JJY60, MSF, or WWVB. Example: `-s DCF77`
+`-s <service>` : Time service. One of DCF77, JJY40, JJY60, MSF, or WWVB. Example: `-s DCF77`
 
-`-c` Output carrier wave only without time signal. Useful for testing frequencies.
+`-c` : Output carrier wave only without time signal. Useful for testing frequencies.
 
-`-v` Verbose. Add this option multiple times for more verbosity.
+`-v` : Verbose. Add this option multiple times for more verbosity.
 * `-v` to output time every minute
 * `-vv` to additionally output modulation values
 
-`-h` Print this options help message.
+`-h` : Print this options help message.
 
 ## Hardware
 
@@ -96,8 +96,9 @@ Therefore, building an efficient transmitting antenna is far beyond practical li
 Hence don't expect to transmit outside your house. The longest range these circuits succeeded to reach was 10 meters with a 40 kHz signal and direct line of sight. The antenna was powered by the 5 volt dual MOSFET amplifier circuit. Increasing the voltage didn't improve the range.
 
 You will have to adjust the resonance of your antenna for the desired frequency with the capacitor. Capacitor value depends on antenna inductance L and target frequency f:
-
-`C = 1 / (4×π²×L×f²)`
+```math
+C = \frac{1}{4\pi^2 \cdot L \cdot f^2}
+```
 
 AM antennas have usually an inductance between 500 and 700 µH, so the theoretical C values are:
 * 40000 Hz : 26 nF
@@ -124,10 +125,11 @@ The main differences between Pierre Brial's original time-signal and txtempus ar
 * txtempus is written in C++ while time-signal is written in C and doesn't need CMake to be built.
 * time-signal doesn't use an attenuation pin, so the required hardware is simpler.
 
-### Footnotes and Useful Links:
-[^1]: New ideas about designing low frequencies antennas: Slevin, Cohen and Golkowski (2021), "Wideband VLF/LF Transmission from an Electrically-Small Antenna by Means of Time-Varying Non-Reciprocity via High-Speed Switches", URSI GASS 2021, Rome, Italy, 28 August - 4 September 2021.
-[^2]: Ferrite antennas: https://www.electronics-notes.com/articles/antennas-propagation/ferrite-rod-bar-antenna/basics-tutorial.php
+### Useful Links:
 
 * Discussion in txtempus GitHub about how to design longest range transmitters: https://github.com/hzeller/txtempus/issues/8
 * Andreas Spiess video about designing a DCF77 transmitter: https://youtu.be/6SHGAEhnsYk
 * Wikipedia pages about time services: [DCF77](https://en.wikipedia.org/wiki/DCF77), [JJY](https://en.wikipedia.org/wiki/JJY), [MSF](https://en.wikipedia.org/wiki/Time_from_NPL_(MSF)), [WWVB](https://en.wikipedia.org/wiki/WWVB)
+
+[^1]: New ideas about designing low frequencies antennas: Slevin, Cohen and Golkowski (2021), "Wideband VLF/LF Transmission from an Electrically-Small Antenna by Means of Time-Varying Non-Reciprocity via High-Speed Switches", URSI GASS 2021, Rome, Italy, 28 August - 4 September 2021.
+[^2]: Ferrite antennas: https://www.electronics-notes.com/articles/antennas-propagation/ferrite-rod-bar-antenna/basics-tutorial.php
