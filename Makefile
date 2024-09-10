@@ -28,7 +28,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | $(OBJ_DIR)
 $(BUILD_DIR) $(OBJ_DIR):
 	mkdir -p $@
 
-install:
+install: $(TARGET)
 	@install -m755 -v $(TARGET) $(INSTALL_DIR)/$(EXE_NAME)
 	@install -m644 -v $(SRC_DIR)/$(EXE_NAME).service /etc/systemd/system
 	@systemctl --no-ask-password daemon-reload
