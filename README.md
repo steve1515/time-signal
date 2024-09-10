@@ -40,10 +40,13 @@ sudo ./time-signal [options]
 ### Options
 
 `-s <service>` Time service. One of DCF77, JJY40, JJY60, MSF, or WWVB. Example: `-s DCF77`
+
 `-c` Output carrier wave only without time signal. Useful for testing frequencies.
+
 `-v` Verbose. Add this option multiple times for more verbosity.
 * `-v` to output time every minute
 * `-vv` to additionally output modulation values
+
 `-h` Print this options help message.
 
 ## Hardware
@@ -101,29 +104,30 @@ AM antennas have usually an inductance between 500 and 700 µH, so the theoretic
 * 60000 Hz : 12 nF
 * 77500 Hz : 7 nF
 
-If you have an oscilloscope, connect it between the antenna and the capacitor, and then run **time-signal** with the '-c' option. Change the value of the capacitor to obtain the larger and cleaner signal. The signal should look like a nice sinusoid.
+If you have an oscilloscope, connect it between the antenna and the capacitor, and then run **time-signal** with the `-c` option. Change the value of the capacitor to obtain the larger and cleaner signal. The signal should look like a nice sinusoid.
 
 | Poorly Tuned Antenna (40kHz, 10nF) | Well Tuned Antenna (40kHz, 33nF) |
 | --- | --- |
-| ![Poorly Tuned Antenna](doc/antenna-bad.jpg) | ![Well Tuned Antenna](doc/antanna-good.jpg) |
+| ![Poorly Tuned Antenna](doc/antenna-bad.jpg) | ![Well Tuned Antenna](doc/antenna-good.jpg) |
 
 ## Credits and References
 
 Parts of **time-signal** code come from or are based on code from Pierre Brial [harlock974](https://github.com/harlock974/time-signal) and Henner Zeller [txtempus](https://github.com/hzeller/txtempus).
 
 The main differences between this version of time-signal and Pierre Brial's original time-signal are:
-* Clock code has updated which should allow functionality on all versions of Raspberry Pi 1, 2, 3, 4 and Zeros.
+* Clock code has been updated which should allow functionality on all versions of Raspberry Pi 1, 2, 3, 4 and Zeros.
 * Code has been cleaned up and restructured to use pthreads.
-* Make file can now install time-signal into system so that it starts up automatically on boot.
+* Make file can now install time-signal on to system so that it starts up automatically on boot.
 
 The main differences between Pierre Brial's original time-signal and txtempus are:
 * txtempus works on Raspberry Pi 3, Zero W, and Jetson Nano; the original time-signal works on Raspberry Pi 3, 4 and Zero W.
 * txtempus is written in C++ while time-signal is written in C and doesn't need CMake to be built.
 * time-signal doesn't use an attenuation pin, so the required hardware is simpler.
 
-### Footnotes:
+### Footnotes and Useful Links:
 [^1]: New ideas about designing low frequencies antennas: Slevin, Cohen and Golkowski (2021), "Wideband VLF/LF Transmission from an Electrically-Small Antenna by Means of Time-Varying Non-Reciprocity via High-Speed Switches", URSI GASS 2021, Rome, Italy, 28 August - 4 September 2021.
 [^2]: Ferrite antennas: https://www.electronics-notes.com/articles/antennas-propagation/ferrite-rod-bar-antenna/basics-tutorial.php
-[^3]: Discussion in txtempus GitHub about how to design longest range transmitters: https://github.com/hzeller/txtempus/issues/8
-[^4]: Andreas Spiess video about designing a DCF77 transmitter: https://youtu.be/6SHGAEhnsYk
-[^5]: Wikipedia pages about time services: [DCF77](https://en.wikipedia.org/wiki/DCF77), [JJY](https://en.wikipedia.org/wiki/JJY), [MSF](https://en.wikipedia.org/wiki/Time_from_NPL_(MSF)), [WWVB](https://en.wikipedia.org/wiki/WWVB)
+
+* Discussion in txtempus GitHub about how to design longest range transmitters: https://github.com/hzeller/txtempus/issues/8
+* Andreas Spiess video about designing a DCF77 transmitter: https://youtu.be/6SHGAEhnsYk
+* Wikipedia pages about time services: [DCF77](https://en.wikipedia.org/wiki/DCF77), [JJY](https://en.wikipedia.org/wiki/JJY), [MSF](https://en.wikipedia.org/wiki/Time_from_NPL_(MSF)), [WWVB](https://en.wikipedia.org/wiki/WWVB)
