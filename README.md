@@ -7,7 +7,7 @@ Notable new features include:
 * Automatically getting clock frequencies from system kernel.
 * User entered time offset for transmitted time signal.
 * Ability to install as a service to run on boot.
-* [Full Technical Differences](#Credits and References)
+* [Full Technical Differences](#credits-and-References)
 
 ## Platforms
 
