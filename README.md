@@ -1,7 +1,13 @@
 # time-signal
-A multiband time signal radio transmitter for Raspberry Pi.
+A fork of [Pierre Brial's time-signal](https://github.com/harlock974/time-signal) with additional features added.
 
-**time-signal** allows a Raspberry Pi to become a DCF77, JJY, MSF, or WWVB simulator/transmitter. 
+**time-signal** allows a Raspberry Pi to become a DCF77, JJY, MSF, or WWVB simulator/transmitter.
+
+Notable new features include:
+* Automatically getting clock frequencies from system kernel.
+* User entered time offset for transmitted time signal.
+* Ability to install as a service to run on boot.
+* [Full Technical Differences](#Credits and References)
 
 ## Platforms
 
@@ -18,7 +24,7 @@ A multiband time signal radio transmitter for Raspberry Pi.
 
 To build **time-signal**, clone this repository and run `make` using the example below:
 ```
-$ git glone https://github.com/steve1515/time-signal
+$ git clone https://github.com/steve1515/time-signal
 $ cd time-signal
 $ make
 $ ./build/time-signal -h
@@ -39,9 +45,12 @@ sudo ./time-signal [options]
 
 ### Options
 
-`-s <service>` : Time service. One of DCF77, JJY40, JJY60, MSF, or WWVB. Example: `-s DCF77`
+`-s <service>` : Time service to transmit.
+* `<service>` is one of `DCF77`, `JJY40`, `JJY60`, `MSF`, or `WWVB`. Example: `-s DCF77`
 
 `-c` : Output carrier wave only without time signal. Useful for testing frequencies.
+
+`-o <hours>` : Offset the time signal transmitted by the value given in `<hours>`.
 
 `-v` : Verbose. Add this option multiple times for more verbosity.
 * `-v` to output time every minute
@@ -117,15 +126,17 @@ Parts of **time-signal** code come from or are based on code from Pierre Brial [
 
 The main differences between this version of time-signal and Pierre Brial's original time-signal are:
 * Clock code has been updated which should allow functionality on all versions of Raspberry Pi 1, 2, 3, 4 and Zeros.
+* Clock frequencies are automatically read from kernel interface and not hard-coded.
 * Code has been cleaned up and restructured to use pthreads.
 * Make file can now install time-signal on to system so that it starts up automatically on boot.
+* A time offset feature has been added.
 
 The main differences between Pierre Brial's original time-signal and txtempus are:
 * txtempus works on Raspberry Pi 3, Zero W, and Jetson Nano; the original time-signal works on Raspberry Pi 3, 4 and Zero W.
 * txtempus is written in C++ while time-signal is written in C and doesn't need CMake to be built.
 * time-signal doesn't use an attenuation pin, so the required hardware is simpler.
 
-### Useful Links:
+### Useful Links
 
 * Discussion in txtempus GitHub about how to design longest range transmitters: https://github.com/hzeller/txtempus/issues/8
 * Andreas Spiess video about designing a DCF77 transmitter: https://youtu.be/6SHGAEhnsYk

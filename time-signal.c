@@ -44,16 +44,24 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "time-services.h"
 
 
-void print_usage(const char *programName);
-void sig_handler(int sigNum);
+static void print_usage(const char *programName);
+static void sig_handler(int sigNum);
 static void *thread_carrier_only(void *arg);
 static void *thread_time_signal(void *arg);
 
+
+static const char * const TimeServiceNames[] = {
+  [DCF77] = "DCF77",
+  [JJY]   = "JJY",
+  [MSF]   = "MSF",
+  [WWVB]  = "WWVB"
+};
 
 typedef struct
 {
   enum TimeService timeService;
   uint32_t carrierFrequency;
+  int32_t hourOffset;
 } THREAD_DATA;
 
 
@@ -70,9 +78,10 @@ int main(int argc, char *argv[])
 
 
   int c;
-  bool optCarrierOnly = false;
   char *optTimeSource = "";
-  while ((c = getopt(argc, argv, "s:cvh")) != -1)
+  bool optCarrierOnly = false;
+  int32_t optHourOffset = 0;
+  while ((c = getopt(argc, argv, "s:co:vh")) != -1)
   {
     switch (c)
     {
@@ -82,6 +91,10 @@ int main(int argc, char *argv[])
 
       case 'c':
         optCarrierOnly = true;
+        break;
+
+      case 'o':
+        optHourOffset = strtol(optarg, NULL, 10);
         break;
 
       case 'v':
@@ -108,6 +121,8 @@ int main(int argc, char *argv[])
     print_usage(argv[0]);
     return EXIT_FAILURE;
   }
+
+  threadData.hourOffset = optHourOffset;
 
 
   printf("time-signal - DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi\n");
@@ -198,19 +213,20 @@ int main(int argc, char *argv[])
 }
 
 
-void print_usage(const char *programName)
+static void print_usage(const char *programName)
 {
   printf("Usage: %s [options]\n"
          "Options:\n"
          "  -s <service>   Time service. ('DCF77', 'JJY40', 'JJY60', 'MSF', or 'WWVB')\n"
          "  -c             Output carrier wave only.\n"
+         "  -o <hours>     Hours to offset.\n"
          "  -v             Verbose. (Add multiple times for more verbosity. e.g. -vv)\n"
          "  -h             Print this message and exit.\n",
          programName);
 }
 
 
-void sig_handler(int sigNum)
+static void sig_handler(int sigNum)
 {
   switch (sigNum)
   {
@@ -236,6 +252,9 @@ static void *thread_carrier_only(void *arg)
   THREAD_DATA threadData = *(THREAD_DATA*)arg;
 
   printf("Starting carrier only thread...\n");
+  printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
+  printf("Carrier Frequency = %.4lf kHz\n", threadData.carrierFrequency / 1000.0);
+  printf("\n");
 
   if (!gpio_init())
   {
@@ -276,6 +295,10 @@ static void *thread_time_signal(void *arg)
   struct timespec targetWait;
 
   printf("Starting time signal thread...\n");
+  printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
+  printf("Carrier Frequency = %.4lf Hz\n", threadData.carrierFrequency / 1000.0);
+  printf("Hour Offset = %d\n", threadData.hourOffset);
+  printf("\n");
 
   if (!gpio_init())
   {
@@ -308,7 +331,7 @@ static void *thread_time_signal(void *arg)
       fflush(stdout);
     }
 
-    minuteBits = prepare_minute(threadData.timeService, minuteStart);
+    minuteBits = prepare_minute(threadData.timeService, minuteStart + (threadData.hourOffset * 3600));
     if (minuteBits == (uint64_t)-1)
     {
       fprintf(stderr, "Error preparing minute bits.\n");
