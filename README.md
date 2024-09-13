@@ -46,11 +46,13 @@ sudo ./time-signal [options]
 ### Options
 
 `-s <service>` : Time service to transmit.
-* `<service>` is one of `DCF77`, `JJY40`, `JJY60`, `MSF`, or `WWVB`. Example: `-s WWVB`
+* `<service>` is one of `DCF77`, `JJY40`, `JJY60`, `MSF`, or `WWVB`.
+* Examples: `-s DCF77`, `-s WWVB`
 
 `-c` : Output carrier wave only without time signal. Useful for testing frequencies.
 
-`-o <hours>` : Offset the time signal transmitted by the value given in `<hours>`. Examples: `-o -1`, `-o 1.5`
+`-o <hours>` : Offset the time signal transmitted by the value given in `<hours>`.
+* Examples: `-o -1`, `-o 1.5`
 
 `-v` : Verbose. Add this option multiple times for more verbosity.
 * `-v` to output time every minute
