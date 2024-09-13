@@ -37,6 +37,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <sched.h>
 #include <sys/mman.h>
 #include <pthread.h>
+#include <math.h>
 #include <string.h>
 #include <time.h>
 #include <getopt.h>
@@ -61,7 +62,7 @@ typedef struct
 {
   enum TimeService timeService;
   uint32_t carrierFrequency;
-  int32_t hourOffset;
+  double hourOffset;
 } THREAD_DATA;
 
 
@@ -80,7 +81,7 @@ int main(int argc, char *argv[])
   int c;
   char *optTimeSource = "";
   bool optCarrierOnly = false;
-  int32_t optHourOffset = 0;
+  double optHourOffset = 0.0;
   while ((c = getopt(argc, argv, "s:co:vh")) != -1)
   {
     switch (c)
@@ -94,7 +95,12 @@ int main(int argc, char *argv[])
         break;
 
       case 'o':
-        optHourOffset = strtol(optarg, NULL, 10);
+        if (sscanf(optarg, "%lf", &optHourOffset) < 1)
+        {
+          fprintf(stderr, "Error: Invalid hour offset.\n");
+          print_usage(argv[0]);
+          return EXIT_FAILURE;
+        }
         break;
 
       case 'v':
@@ -294,10 +300,12 @@ static void *thread_time_signal(void *arg)
   int modulation;
   struct timespec targetWait;
 
+  int32_t minuteOffset = round(threadData.hourOffset * 60);
+
   printf("Starting time signal thread...\n");
   printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
   printf("Carrier Frequency = %.4lf Hz\n", threadData.carrierFrequency / 1000.0);
-  printf("Hour Offset = %d\n", threadData.hourOffset);
+  printf("Hour Offset = %.4lf (%d min)\n", threadData.hourOffset, minuteOffset);
   printf("\n");
 
   if (!gpio_init())
@@ -327,11 +335,21 @@ static void *thread_time_signal(void *arg)
       char dateString[] = "1970-01-01 00:00:00";
       localtime_r(&minuteStart, &timeValue);
       strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeValue);
-      printf("%s\n", dateString);
+      printf("%s", dateString);
+
+      if (minuteOffset != 0)
+      {
+        time_t t = minuteStart + (minuteOffset * 60);
+        localtime_r(&t, &timeValue);
+        strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeValue);
+        printf(" --> %s", dateString);
+      }
+
+      printf("\n");
       fflush(stdout);
     }
 
-    minuteBits = prepare_minute(threadData.timeService, minuteStart + (threadData.hourOffset * 3600));
+    minuteBits = prepare_minute(threadData.timeService, minuteStart + (minuteOffset * 60));
     if (minuteBits == (uint64_t)-1)
     {
       fprintf(stderr, "Error preparing minute bits.\n");
