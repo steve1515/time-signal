@@ -32,6 +32,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <inttypes.h>
 #include <unistd.h>
 #include <signal.h>
 #include <sched.h>
@@ -81,8 +82,9 @@ int main(int argc, char *argv[])
   int c;
   char *optTimeSource = "";
   bool optCarrierOnly = false;
+  uint32_t optFreqOverride = 0;
   double optHourOffset = 0.0;
-  while ((c = getopt(argc, argv, "s:co:vh")) != -1)
+  while ((c = getopt(argc, argv, "s:cf:o:vh")) != -1)
   {
     switch (c)
     {
@@ -92,6 +94,15 @@ int main(int argc, char *argv[])
 
       case 'c':
         optCarrierOnly = true;
+        break;
+
+      case 'f':
+        if (sscanf(optarg, "%" SCNu32, &optFreqOverride) < 1 || optFreqOverride <= 0)
+        {
+          fprintf(stderr, "Error: Carrier frequency override value must be greater than zero.\n");
+          print_usage(argv[0]);
+          return EXIT_FAILURE;
+        }
         break;
 
       case 'o':
@@ -128,6 +139,9 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  if (optFreqOverride > 0)
+    threadData.carrierFrequency = optFreqOverride;
+
   threadData.hourOffset = optHourOffset;
 
 
@@ -136,6 +150,7 @@ int main(int argc, char *argv[])
   printf("This program comes with ABSOLUTELY NO WARRANTY.\n");
   printf("This is free software, and you are welcome to\n");
   printf("redistribute it under certain conditions.\n\n");
+  fflush(stdout);
 
 
   struct sched_param schedParam = { 0 };
@@ -216,6 +231,7 @@ int main(int argc, char *argv[])
   }
 
   printf("Program terminated.\n");
+  fflush(stdout);
 }
 
 
@@ -225,6 +241,7 @@ static void print_usage(const char *programName)
          "Options:\n"
          "  -s <service>   Time service. ('DCF77', 'JJY40', 'JJY60', 'MSF', or 'WWVB')\n"
          "  -c             Output carrier wave only.\n"
+         "  -f <frequency> Carrier frequency override.\n"
          "  -o <hours>     Hours to offset.\n"
          "  -v             Verbose. (Add multiple times for more verbosity. e.g. -vv)\n"
          "  -h             Print this message and exit.\n",
@@ -250,6 +267,8 @@ static void sig_handler(int sigNum)
       printf("\nReceived unknown signal (%d).\n", sigNum);
       break;
   }
+
+  fflush(stdout);
 }
 
 
@@ -261,6 +280,7 @@ static void *thread_carrier_only(void *arg)
   printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
   printf("Carrier Frequency = %.4lf kHz\n", threadData.carrierFrequency / 1000.0);
   printf("\n");
+  fflush(stdout);
 
   if (!gpio_init())
   {
@@ -307,6 +327,7 @@ static void *thread_time_signal(void *arg)
   printf("Carrier Frequency = %.4lf Hz\n", threadData.carrierFrequency / 1000.0);
   printf("Hour Offset = %.4lf (%d min)\n", threadData.hourOffset, minuteOffset);
   printf("\n");
+  fflush(stdout);
 
   if (!gpio_init())
   {

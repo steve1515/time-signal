@@ -6,6 +6,7 @@ A fork of [Pierre Brial's time-signal](https://github.com/harlock974/time-signal
 Notable new features include:
 * Automatically getting clock frequencies from system kernel.
 * User entered time offset for transmitted time signal.
+* Ability to override carrier frequency.
 * Ability to install as a service to run on boot.
 * [Full Technical Differences](#credits-and-References)
 
@@ -50,6 +51,9 @@ sudo ./time-signal [options]
 * Examples: `-s DCF77`, `-s WWVB`
 
 `-c` : Output carrier wave only without time signal. Useful for testing frequencies.
+
+`-f <frequency>` : Override the carrier frequency in `<frequency>` Hz.
+* Example: `-f 50000` for 50 kHz.
 
 `-o <hours>` : Offset the time signal transmitted by the value given in `<hours>`.
 * Examples: `-o -1`, `-o 1.5`
@@ -132,6 +136,7 @@ The main differences between this version of time-signal and Pierre Brial's orig
 * Code has been cleaned up and restructured to use pthreads.
 * Make file can now install time-signal on to system so that it starts up automatically on boot.
 * A time offset feature has been added.
+* An option to set any carrier frequency has been added.
 
 The main differences between Pierre Brial's original time-signal and txtempus are:
 * txtempus works on Raspberry Pi 3, Zero W, and Jetson Nano; the original time-signal works on Raspberry Pi 3, 4 and Zero W.
