@@ -61,7 +61,7 @@ sudo ./time-signal [options]
 * `-v` to output time every minute
 * `-vv` to additionally output time signal modulation values
 
-`-h` : Print a listing of options and exit.
+`-h, --help` : Print a listing of options and exit.
 
 ## Hardware
 
