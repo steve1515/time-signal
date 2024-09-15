@@ -57,6 +57,9 @@ sudo ./time-signal [options]
 `-o, --time-offset=NUM` : Offset transmitted time by _NUM_ hours. Fractional hours are supported.
 * Examples: `-o -1`, `--time-offset 1.5`
 
+`-d, --disable-checks` : Disable sanity checks.
+* Currently this checks that the system clock's year is at least 2020.
+
 `-v, --verbose` : Enable verbose output. Add multiple times for more output.
 * `-v` to output time every minute
 * `-vv` to additionally output time signal modulation values
@@ -137,6 +140,7 @@ The main differences between this version of time-signal and Pierre Brial's orig
 * A time offset feature has been added.
 * An option to set any carrier frequency has been added.
 * Long-style options have been added.
+* Sanity checking of the system clock before transmitting.
 
 The main differences between Pierre Brial's original time-signal and txtempus are:
 * txtempus works on Raspberry Pi 3, Zero W, and Jetson Nano; the original time-signal works on Raspberry Pi 3, 4 and Zero W.

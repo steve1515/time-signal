@@ -65,6 +65,7 @@ typedef struct
   enum TimeService timeService;
   uint32_t carrierFrequency;
   double hourOffset;
+  bool disableChecks;
 } THREAD_DATA;
 
 
@@ -86,6 +87,7 @@ int main(int argc, char *argv[])
     {"carrier-only",       no_argument,       NULL, 'c'},
     {"frequency-override", required_argument, NULL, 'f'},
     {"time-offset",        required_argument, NULL, 'o'},
+    {"disable-checks",     no_argument,       NULL, 'd'},
     {"verbose",            no_argument,       NULL, 'v'},
     {"help",               no_argument,       NULL, 'h'},
     {0, 0, 0, 0}
@@ -96,7 +98,8 @@ int main(int argc, char *argv[])
   bool optCarrierOnly = false;
   uint32_t optFreqOverride = 0;
   double optHourOffset = 0.0;
-  while ((c = getopt_long(argc, argv, "s:cf:o:vh", long_options, NULL)) != -1)
+  bool optDisableChecks = false;
+  while ((c = getopt_long(argc, argv, "s:cf:o:dvh", long_options, NULL)) != -1)
   {
     switch (c)
     {
@@ -124,6 +127,10 @@ int main(int argc, char *argv[])
           print_usage(argv[0]);
           return EXIT_FAILURE;
         }
+        break;
+
+      case 'd':
+        optDisableChecks = true;
         break;
 
       case 'v':
@@ -156,6 +163,7 @@ int main(int argc, char *argv[])
     threadData.carrierFrequency = optFreqOverride;
 
   threadData.hourOffset = optHourOffset;
+  threadData.disableChecks = optDisableChecks;
 
 
   printf("time-signal - DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi\n");
@@ -257,6 +265,7 @@ static void print_usage(const char *programName)
          "  -c, --carrier-only             Output carrier wave only.\n"
          "  -f, --frequency-override=NUM   Set carrier frequency to NUM Hz.\n"
          "  -o, --time-offset=NUM          Offset transmitted time by NUM hours.\n"
+         "  -d, --disable-checks           Disable sanity checks.\n"
          "  -v, --verbose                  Enable verbose output.\n"
          "                                 Add multiple times for more output. e.g. -vv\n"
          "  -h, --help                     Print this message and exit.\n",
@@ -331,6 +340,8 @@ static void *thread_time_signal(void *arg)
   THREAD_DATA threadData = *(THREAD_DATA*)arg;
   time_t currentTime;
   time_t minuteStart;
+  struct tm timeParts;
+  char dateString[] = "1970-01-01 00:00:00";
   uint64_t minuteBits;
   int modulation;
   struct timespec targetWait;
@@ -341,6 +352,7 @@ static void *thread_time_signal(void *arg)
   printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
   printf("Carrier Frequency = %.4lf Hz\n", threadData.carrierFrequency / 1000.0);
   printf("Hour Offset = %.4lf (%d min)\n", threadData.hourOffset, minuteOffset);
+  printf("Disable Sanity Checks = %s\n", threadData.disableChecks ? "Yes" : "No");
   printf("\n");
   fflush(stdout);
 
@@ -363,21 +375,28 @@ static void *thread_time_signal(void *arg)
   currentTime = time(NULL);
   minuteStart = currentTime - (currentTime % 60);  // Round down to start of minute
 
+  gmtime_r(&currentTime, &timeParts);
+  if (!threadData.disableChecks && (timeParts.tm_year + 1900) < 2020)
+  {
+    fprintf(stderr, "Sanity check failed: System clock year must be >= 2020.\n");
+    strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeParts);
+    fprintf(stderr, "Current system clock (UTC): %s\n", dateString);
+    _threadRun = 0;
+  }
+
   while (_threadRun)
   {
     if (_verbosityLevel >= 1)
     {
-      struct tm timeValue;
-      char dateString[] = "1970-01-01 00:00:00";
-      localtime_r(&minuteStart, &timeValue);
-      strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeValue);
+      localtime_r(&minuteStart, &timeParts);
+      strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeParts);
       printf("%s", dateString);
 
       if (minuteOffset != 0)
       {
         time_t t = minuteStart + (minuteOffset * 60);
-        localtime_r(&t, &timeValue);
-        strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeValue);
+        localtime_r(&t, &timeParts);
+        strftime(dateString, sizeof(dateString), "%Y-%m-%d %H:%M:%S", &timeParts);
         printf(" --> %s", dateString);
       }
 
