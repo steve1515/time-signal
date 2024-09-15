@@ -31,7 +31,7 @@ $ make
 $ ./build/time-signal -h
 ```
 
-To install **time-signal** so it runs automatically on boot, execute the following command after editing `time-signal.service` to contain your required service options. Example: `-s WWVB`
+To install **time-signal** so it runs automatically on boot, execute the following command after editing `time-signal.service` to contain your required service options. Example: `--time-service WWVB`
 ```
 $ sudo make install
 ```
@@ -46,23 +46,22 @@ sudo ./time-signal [options]
 
 ### Options
 
-`-s <service>` : Time service to transmit.
-* `<service>` is one of `DCF77`, `JJY40`, `JJY60`, `MSF`, or `WWVB`.
-* Examples: `-s DCF77`, `-s WWVB`
+`-s, --time-service={DCF77|JJY40|JJY60|MSF|WWVB}` : Time service to transmit.
+* Examples: `-s DCF77`, `--time-service WWVB`
 
-`-c` : Output carrier wave only without time signal. Useful for testing frequencies.
+`-c, --carrier-only` : Output carrier wave only without time signal. Useful for testing frequencies.
 
-`-f <frequency>` : Override the carrier frequency in `<frequency>` Hz.
+`-f, --frequency-override=NUM` : Override the carrier frequency and set to _NUM_ Hz.
 * Example: `-f 50000` for 50 kHz.
 
-`-o <hours>` : Offset the time signal transmitted by the value given in `<hours>`.
-* Examples: `-o -1`, `-o 1.5`
+`-o, --time-offset=NUM` : Offset transmitted time by _NUM_ hours. Fractional hours are supported.
+* Examples: `-o -1`, `--time-offset 1.5`
 
-`-v` : Verbose. Add this option multiple times for more verbosity.
+`-v, --verbose` : Enable verbose output. Add multiple times for more output.
 * `-v` to output time every minute
-* `-vv` to additionally output modulation values
+* `-vv` to additionally output time signal modulation values
 
-`-h` : Print this options help message.
+`-h` : Print a listing of options and exit.
 
 ## Hardware
 
@@ -137,6 +136,7 @@ The main differences between this version of time-signal and Pierre Brial's orig
 * Make file can now install time-signal on to system so that it starts up automatically on boot.
 * A time offset feature has been added.
 * An option to set any carrier frequency has been added.
+* Long-style options have been added.
 
 The main differences between Pierre Brial's original time-signal and txtempus are:
 * txtempus works on Raspberry Pi 3, Zero W, and Jetson Nano; the original time-signal works on Raspberry Pi 3, 4 and Zero W.

@@ -52,7 +52,8 @@ static void *thread_carrier_only(void *arg);
 static void *thread_time_signal(void *arg);
 
 
-static const char * const TimeServiceNames[] = {
+static const char * const TimeServiceNames[] =
+{
   [DCF77] = "DCF77",
   [JJY]   = "JJY",
   [MSF]   = "MSF",
@@ -79,17 +80,28 @@ int main(int argc, char *argv[])
   sigaction(SIGTERM, &sigAction, NULL);
 
 
+  static struct option long_options[] =
+  {
+    {"time-service",       required_argument, NULL, 's'},
+    {"carrier-only",       no_argument,       NULL, 'c'},
+    {"frequency-override", required_argument, NULL, 'f'},
+    {"time-offset",        required_argument, NULL, 'o'},
+    {"verbose",            no_argument,       NULL, 'v'},
+    {"help",               no_argument,       NULL, 'h'},
+    {0, 0, 0, 0}
+  };
+
   int c;
-  char *optTimeSource = "";
+  char *optTimeService = "";
   bool optCarrierOnly = false;
   uint32_t optFreqOverride = 0;
   double optHourOffset = 0.0;
-  while ((c = getopt(argc, argv, "s:cf:o:vh")) != -1)
+  while ((c = getopt_long(argc, argv, "s:cf:o:vh", long_options, NULL)) != -1)
   {
     switch (c)
     {
       case 's':
-        optTimeSource = optarg;
+        optTimeService = optarg;
         break;
 
       case 'c':
@@ -119,6 +131,7 @@ int main(int argc, char *argv[])
         break;
 
       case 'h':
+      case '?':
       default:
         print_usage(argv[0]);
         return EXIT_SUCCESS;
@@ -127,11 +140,11 @@ int main(int argc, char *argv[])
 
 
   THREAD_DATA threadData = { 0 };
-  if      (!strcasecmp(optTimeSource, "DCF77")) { threadData.timeService = DCF77; threadData.carrierFrequency = 77500; }
-  else if (!strcasecmp(optTimeSource, "JJY40")) { threadData.timeService = JJY;   threadData.carrierFrequency = 40000; }
-  else if (!strcasecmp(optTimeSource, "JJY60")) { threadData.timeService = JJY;   threadData.carrierFrequency = 60000; }
-  else if (!strcasecmp(optTimeSource, "MSF"))   { threadData.timeService = MSF;   threadData.carrierFrequency = 60000; }
-  else if (!strcasecmp(optTimeSource, "WWVB"))  { threadData.timeService = WWVB;  threadData.carrierFrequency = 60000; }
+  if      (!strcasecmp(optTimeService, "DCF77")) { threadData.timeService = DCF77; threadData.carrierFrequency = 77500; }
+  else if (!strcasecmp(optTimeService, "JJY40")) { threadData.timeService = JJY;   threadData.carrierFrequency = 40000; }
+  else if (!strcasecmp(optTimeService, "JJY60")) { threadData.timeService = JJY;   threadData.carrierFrequency = 60000; }
+  else if (!strcasecmp(optTimeService, "MSF"))   { threadData.timeService = MSF;   threadData.carrierFrequency = 60000; }
+  else if (!strcasecmp(optTimeService, "WWVB"))  { threadData.timeService = WWVB;  threadData.carrierFrequency = 60000; }
   else
   {
     fprintf(stderr, "Invalid time service selected.\n\n");
@@ -237,14 +250,16 @@ int main(int argc, char *argv[])
 
 static void print_usage(const char *programName)
 {
-  printf("Usage: %s [options]\n"
-         "Options:\n"
-         "  -s <service>   Time service. ('DCF77', 'JJY40', 'JJY60', 'MSF', or 'WWVB')\n"
-         "  -c             Output carrier wave only.\n"
-         "  -f <frequency> Carrier frequency override.\n"
-         "  -o <hours>     Hours to offset.\n"
-         "  -v             Verbose. (Add multiple times for more verbosity. e.g. -vv)\n"
-         "  -h             Print this message and exit.\n",
+  printf("Usage: %s [OPTION]...\n\n"
+         "Mandatory arguments to long options are mandatory for short options too.\n"
+         "  -s, --time-service={DCF77|JJY40|JJY60|MSF|WWVB}\n"
+         "                                 Time service to transmit.\n"
+         "  -c, --carrier-only             Output carrier wave only.\n"
+         "  -f, --frequency-override=NUM   Set carrier frequency to NUM Hz.\n"
+         "  -o, --time-offset=NUM          Offset transmitted time by NUM hours.\n"
+         "  -v, --verbose                  Enable verbose output.\n"
+         "                                 Add multiple times for more output. e.g. -vv\n"
+         "  -h, --help                     Print this message and exit.\n",
          programName);
 }
 

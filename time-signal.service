@@ -6,7 +6,7 @@ After=network-online.target
 
 [Service]
 Type=exec
-ExecStart=/usr/local/bin/time-signal -s WWVB
+ExecStart=/usr/local/bin/time-signal --time-service WWVB
 Restart=always
 RestartSec=5
 

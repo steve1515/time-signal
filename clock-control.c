@@ -124,13 +124,13 @@ static volatile uint32_t *_pClockVirtMem;
 
 // Reference: /sys/kernel/debug/clk/clk_summary
 static CLOCK_SOURCE _clockSources[] =
-  {
-    { 1, "osc",      true,  0 },  // Oscillator (19.2 MHz Pi1-3 / 54.0 MHz Pi4)
-    { 4, "plla_per", false, 0 },  // PLLA Per (Changes with audio usage.)
-    { 5, "pllc_per", false, 0 },  // PLLC Per (Changes with core clock.)
-    { 6, "plld_per", true,  0 },  // PLLD Per (500 MHz Pi1-3 / 750 MHz Pi4)
-    { 7, "pllh_aux", true,  0 },  // PLLH Aux / HDMI (216 MHz - Changes with display mode.)
-  };
+{
+  { 1, "osc",      true,  0 },  // Oscillator (19.2 MHz Pi1-3 / 54.0 MHz Pi4)
+  { 4, "plla_per", false, 0 },  // PLLA Per (Changes with audio usage.)
+  { 5, "pllc_per", false, 0 },  // PLLC Per (Changes with core clock.)
+  { 6, "plld_per", true,  0 },  // PLLD Per (500 MHz Pi1-3 / 750 MHz Pi4)
+  { 7, "pllh_aux", true,  0 },  // PLLH Aux / HDMI (216 MHz - Changes with display mode.)
+};
 
 
 static enum RaspberryPiModel get_pi_model()
