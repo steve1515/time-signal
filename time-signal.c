@@ -48,6 +48,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 static void print_usage(const char *programName);
 static void sig_handler(int sigNum);
+static bool rt_thread_attr_init(pthread_attr_t *attr);
 static void *thread_carrier_only(void *arg);
 static void *thread_time_signal(void *arg);
 
@@ -174,7 +175,6 @@ int main(int argc, char *argv[])
   fflush(stdout);
 
 
-  struct sched_param schedParam = { 0 };
   pthread_attr_t threadAttr;
   pthread_t threadId;
 
@@ -184,39 +184,9 @@ int main(int argc, char *argv[])
      return EXIT_FAILURE;
   }
 
-  if (pthread_attr_init(&threadAttr))
+  if (!rt_thread_attr_init(&threadAttr))
   {
-    fprintf(stderr, "Failed to initialize thread attributes object.\n");
-    return EXIT_FAILURE;
-  }
-
-  if (pthread_attr_setstacksize(&threadAttr, PTHREAD_STACK_MIN))
-  {
-    fprintf(stderr, "Failed to set thread stack size.\n");
-    return EXIT_FAILURE;
-  }
-
-  if (pthread_attr_setschedpolicy(&threadAttr, SCHED_FIFO))
-  {
-    fprintf(stderr, "Failed to set thread scheduling policy.\n");
-    return EXIT_FAILURE;
-  }
-
-  if ((schedParam.sched_priority = sched_get_priority_max(SCHED_FIFO)) == -1)
-  {
-     perror("Failed to get maximum scheduling priority value");
-     return EXIT_FAILURE;
-  }
-
-  if (pthread_attr_setschedparam(&threadAttr, &schedParam))
-  {
-    fprintf(stderr, "Failed to set thread scheduling parameters.\n");
-    return EXIT_FAILURE;
-  }
-
-  if (pthread_attr_setinheritsched(&threadAttr, PTHREAD_EXPLICIT_SCHED))
-  {
-    fprintf(stderr, "Failed to set thread inherit-scheduler attribute.\n");
+    fprintf(stderr, "Failed to initialize real-time thread attributes.\n");
     return EXIT_FAILURE;
   }
 
@@ -293,6 +263,50 @@ static void sig_handler(int sigNum)
   }
 
   fflush(stdout);
+}
+
+
+static bool rt_thread_attr_init(pthread_attr_t *attr)
+{
+  struct sched_param schedParam = { 0 };
+
+  if (pthread_attr_init(attr))
+  {
+    fprintf(stderr, "Failed to initialize thread attributes object.\n");
+    return false;
+  }
+
+  if (pthread_attr_setstacksize(attr, PTHREAD_STACK_MIN))
+  {
+    fprintf(stderr, "Failed to set thread stack size.\n");
+    return false;
+  }
+
+  if (pthread_attr_setschedpolicy(attr, SCHED_FIFO))
+  {
+    fprintf(stderr, "Failed to set thread scheduling policy.\n");
+    return false;
+  }
+
+  if ((schedParam.sched_priority = sched_get_priority_max(SCHED_FIFO)) == -1)
+  {
+     perror("Failed to get maximum scheduling priority value");
+     return false;
+  }
+
+  if (pthread_attr_setschedparam(attr, &schedParam))
+  {
+    fprintf(stderr, "Failed to set thread scheduling parameters.\n");
+    return false;
+  }
+
+  if (pthread_attr_setinheritsched(attr, PTHREAD_EXPLICIT_SCHED))
+  {
+    fprintf(stderr, "Failed to set thread inherit-scheduler attribute.\n");
+    return false;
+  }
+
+  return true;
 }
 
 
