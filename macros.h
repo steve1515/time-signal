@@ -1,5 +1,5 @@
 /*
-clock-control.h - part of time-signal
+macros.h - part of time-signal
 DCF77/JJY/MSF/WWVB radio transmitter for Raspberry Pi
 
 Copyright (C) 2024 Steve Matos
@@ -29,15 +29,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
-#ifndef __CLOCK_CONTROL_H__
-#define __CLOCK_CONTROL_H__
+#ifndef __MACROS_H__
+#define __MACROS_H__
 
-#include <stdint.h>
-#include <stdbool.h>
+#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
 
-bool gpio_init();
-double start_clock(uint32_t requestedFrequency);
-void stop_clock();
-void enable_clock_output(bool on);
-
-#endif  // __CLOCK_CONTROL_H__
+#endif  // __MACROS_H__

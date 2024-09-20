@@ -39,6 +39,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <math.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include "macros.h"
 #include "clock-control.h"
 
 // Peripheral Base Addresses
@@ -89,9 +90,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #define CLK_DIV_DIVI(x) ((x) << 12)
 #define CLK_DIV_DIVF(x) ((x) << 0)
-
-// Helper Macros
-#define ARRAY_LENGTH(x) (sizeof(x) / sizeof((x)[0]))
 
 
 static enum RaspberryPiModel get_pi_model();

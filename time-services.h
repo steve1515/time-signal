@@ -29,6 +29,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 
+#ifndef __TIME_SERVICES_H__
+#define __TIME_SERVICES_H__
+
 #include <stdint.h>
 #include <time.h>
 
@@ -42,3 +45,5 @@ enum TimeService
 
 uint64_t prepare_minute(enum TimeService service, time_t currentTime);
 int get_modulation_for_second(enum TimeService service, uint64_t timeBits, int sec);
+
+#endif  // __TIME_SERVICES_H__
