@@ -55,7 +55,7 @@ sudo ./time-signal [options]
 `-f, --frequency-override=NUM` : Override the carrier frequency and set to _NUM_ Hz.
 * Example: `-f 50000` for 50 kHz.
 
-`-p, --schedule=SCHEDULE` : User _SCHEDULE_ as a run time schedule.
+`-p, --schedule=SCHEDULE` : Use _SCHEDULE_ as a run time schedule.
 * _SCHEDULE_ is a list of schedule entries in the format _START:LEN[;START;LEN]..._
 * Example: `-p "2:15;13.5:30"` for 2am for 15 minutes and 1:30pm for 30 minutes.
 
