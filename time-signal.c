@@ -282,21 +282,28 @@ static void sig_handler(int sigNum)
   switch (sigNum)
   {
     case SIGINT:
-      printf("\nReceived SIGINT signal. Terminating...\n");
-      _threadRun = 0;
+    {
+      char msg[] = "\nReceived SIGINT signal. Terminating...\n";
+      (void)!write(STDOUT_FILENO, msg, strlen(msg));
+      _threadRun = 0;  
       break;
+    }
 
     case SIGTERM:
-      printf("\nReceived SIGTERM signal. Terminating...\n");
+    {
+      char msg[] = "\nReceived SIGTERM signal. Terminating...\n";
+      (void)!write(STDOUT_FILENO, msg, strlen(msg));
       _threadRun = 0;
       break;
+    }
 
     default:
-      printf("\nReceived unknown signal (%d).\n", sigNum);
+    {
+      char msg[] = "\nReceived unknown signal.\n";
+      (void)!write(STDOUT_FILENO, msg, strlen(msg));
       break;
+    }
   }
-
-  fflush(stdout);
 }
 
 
