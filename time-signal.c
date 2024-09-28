@@ -227,6 +227,18 @@ int main(int argc, char *argv[])
     return EXIT_FAILURE;
   }
 
+  // Block SIGINT and SIGTERM in the main thread. This will force the signals
+  // to be sent to the work thread and will allow interruption of any timers.
+  sigset_t signalSet;
+  sigemptyset(&signalSet);
+  sigaddset(&signalSet, SIGINT);
+  sigaddset(&signalSet, SIGTERM);
+  if (pthread_sigmask(SIG_BLOCK, &signalSet, NULL))
+  {
+    fprintf(stderr, "Failed to update thread signal mask.\n");
+    return EXIT_FAILURE;
+  }
+
   if (pthread_join(threadId, NULL))
   {
     fprintf(stderr, "Failed to join thread.\n");
