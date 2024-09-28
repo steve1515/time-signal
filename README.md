@@ -4,8 +4,9 @@ A fork of [Pierre Brial's time-signal](https://github.com/harlock974/time-signal
 **time-signal** allows a Raspberry Pi to become a DCF77, JJY, MSF, or WWVB simulator/transmitter.
 
 Notable new features include:
+* Ability to run based on a user entered schedule.
+* Ability to transmit a user entered time offset.
 * Automatically getting clock frequencies from system kernel.
-* User entered time offset for transmitted time signal.
 * Ability to override carrier frequency.
 * Ability to install as a service to run on boot.
 * [Full Technical Differences](#credits-and-References)
@@ -54,6 +55,10 @@ sudo ./time-signal [options]
 `-f, --frequency-override=NUM` : Override the carrier frequency and set to _NUM_ Hz.
 * Example: `-f 50000` for 50 kHz.
 
+`-p, --schedule=SCHEDULE` : User _SCHEDULE_ as a run time schedule.
+* _SCHEDULE_ is a list of schedule entries in the format _START:LEN[;START;LEN]..._
+* Example: `-p "2:15;13.5:30"` for 2am for 15 minutes and 1:30pm for 30 minutes.
+
 `-o, --time-offset=NUM` : Offset transmitted time by _NUM_ hours. Fractional hours are supported.
 * Examples: `-o -1`, `--time-offset 1.5`
 
@@ -62,7 +67,7 @@ sudo ./time-signal [options]
 
 `-v, --verbose` : Enable verbose output. Add multiple times for more output.
 * `-v` to output time every minute
-* `-vv` to additionally output time signal modulation values
+* `-vv` to additionally output debugging information
 
 `-h, --help` : Print a listing of options and exit.
 
@@ -137,6 +142,7 @@ The main differences between this version of time-signal and Pierre Brial's orig
 * Clock frequencies are automatically read from kernel interface and not hard-coded.
 * Code has been cleaned up and restructured to use pthreads.
 * Make file can now install time-signal on to system so that it starts up automatically on boot.
+* Ability to run on a programmed schedule has been added. 
 * A time offset feature has been added.
 * An option to set any carrier frequency has been added.
 * Long-style options have been added.

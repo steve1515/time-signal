@@ -42,12 +42,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <string.h>
 #include <time.h>
 #include <getopt.h>
+#include "macros.h"
 #include "clock-control.h"
 #include "time-services.h"
 
 
+#define MINUTES_IN_DAY 1440
+#define SECONDS_IN_DAY 86400
+
+
 static void print_usage(const char *programName);
 static void sig_handler(int sigNum);
+static bool get_periodic_schedule(bool *buffSched, size_t buffLen, const char *paramString);
+static void print_schedule_chart(const bool *buffSched, size_t buffLen);
 static bool rt_thread_attr_init(pthread_attr_t *attr);
 static void *thread_carrier_only(void *arg);
 static void *thread_time_signal(void *arg);
@@ -65,13 +72,14 @@ typedef struct
 {
   enum TimeService timeService;
   uint32_t carrierFrequency;
+  bool runSchedule[MINUTES_IN_DAY];
   double hourOffset;
   bool disableChecks;
 } THREAD_DATA;
 
 
-volatile uint8_t _verbosityLevel = 0;
-volatile sig_atomic_t _threadRun = 0;
+static volatile uint8_t _verbosityLevel = 0;
+static volatile sig_atomic_t _threadRun = 0;
 
 
 int main(int argc, char *argv[])
@@ -87,6 +95,7 @@ int main(int argc, char *argv[])
     {"time-service",       required_argument, NULL, 's'},
     {"carrier-only",       no_argument,       NULL, 'c'},
     {"frequency-override", required_argument, NULL, 'f'},
+    {"schedule",           required_argument, NULL, 'p'},
     {"time-offset",        required_argument, NULL, 'o'},
     {"disable-checks",     no_argument,       NULL, 'd'},
     {"verbose",            no_argument,       NULL, 'v'},
@@ -99,8 +108,9 @@ int main(int argc, char *argv[])
   bool optCarrierOnly = false;
   uint32_t optFreqOverride = 0;
   double optHourOffset = 0.0;
+  char *optSchedule = NULL;
   bool optDisableChecks = false;
-  while ((c = getopt_long(argc, argv, "s:cf:o:dvh", long_options, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "s:cf:p:o:dvh", long_options, NULL)) != -1)
   {
     switch (c)
     {
@@ -119,6 +129,10 @@ int main(int argc, char *argv[])
           print_usage(argv[0]);
           return EXIT_FAILURE;
         }
+        break;
+
+      case 'p':
+        optSchedule = optarg;
         break;
 
       case 'o':
@@ -163,6 +177,10 @@ int main(int argc, char *argv[])
   if (optFreqOverride > 0)
     threadData.carrierFrequency = optFreqOverride;
 
+  memset(threadData.runSchedule, 1, ARRAY_LENGTH(threadData.runSchedule));
+  if (optSchedule != NULL)
+    get_periodic_schedule(threadData.runSchedule, ARRAY_LENGTH(threadData.runSchedule), optSchedule);
+
   threadData.hourOffset = optHourOffset;
   threadData.disableChecks = optDisableChecks;
 
@@ -191,11 +209,11 @@ int main(int argc, char *argv[])
   }
 
   _threadRun = 1;
-  int pthreadResult = 0;
-  if (optCarrierOnly)
-    pthreadResult = pthread_create(&threadId, &threadAttr, thread_carrier_only, (void*)&threadData);
-  else
-    pthreadResult = pthread_create(&threadId, &threadAttr, thread_time_signal, (void*)&threadData);
+  int pthreadResult =
+    pthread_create(&threadId,
+                   &threadAttr,
+                   optCarrierOnly ? thread_carrier_only : thread_time_signal,
+                   (void*)&threadData);
 
   if (pthreadResult)
   {
@@ -234,6 +252,10 @@ static void print_usage(const char *programName)
          "                                 Time service to transmit.\n"
          "  -c, --carrier-only             Output carrier wave only.\n"
          "  -f, --frequency-override=NUM   Set carrier frequency to NUM Hz.\n"
+         "  -p, --schedule=SCHEDULE        Use SCHEDULE as a run time schedule.\n"
+         "                                 SCHEDULE is START:LEN[;START:LEN]...\n"
+         "                                 e.g. -p \"2:15;13.5:30\"\n"
+         "                                      for 2am for 15min and 1:30pm for 30min\n"
          "  -o, --time-offset=NUM          Offset transmitted time by NUM hours.\n"
          "  -d, --disable-checks           Disable sanity checks.\n"
          "  -v, --verbose                  Enable verbose output.\n"
@@ -263,6 +285,97 @@ static void sig_handler(int sigNum)
   }
 
   fflush(stdout);
+}
+
+
+static bool get_periodic_schedule(bool *buffSched, size_t buffLen, const char *paramString)
+{
+  if (buffSched == NULL || buffLen < MINUTES_IN_DAY || paramString == NULL)
+    return false;
+
+  char *paramCopy = strdup(paramString);
+  if (paramCopy == NULL)
+    return false;
+
+  // The parameter string contains schedule entries separated by a ';'.
+  // Each schedule entry contains a start hour and run time in minutes
+  // separated by a ':'.
+  // For example, if the parameter string is "1:3;15.5:15", then the
+  // schedule entries are 1am for 3 minutes and 3:30pm for 15 minutes.
+
+  char delimOuter[] = ";";
+  char delimInner[] = ":";
+
+  memset(buffSched, 0, buffLen);
+
+  char *spOuter = NULL;
+  char *spInner = NULL;
+  for(char *schedEntry = strtok_r(paramCopy, delimOuter, &spOuter);
+      schedEntry != NULL;
+      schedEntry = strtok_r(NULL, delimOuter, &spOuter))
+  {
+
+    char *startHourString = strtok_r(schedEntry, delimInner, &spInner);
+    if (startHourString == NULL)
+      continue;
+
+    double startHour = 0;
+    if ((sscanf(startHourString, "%lf", &startHour) < 1) || (!(startHour >= 0 && startHour < 24)))
+    {
+      fprintf(stderr, "Error: Invalid schedule start hour (%s).\n", startHourString);
+      continue;
+    }
+
+    char *runMinutesString = strtok_r(NULL, delimInner, &spInner);
+    if (runMinutesString == NULL)
+      continue;
+
+    uint16_t runMinutes = 0;
+    if ((sscanf(runMinutesString, "%" SCNu16, &runMinutes) < 1) || (runMinutes > MINUTES_IN_DAY))
+    {
+      fprintf(stderr, "Error: Invalid schedule run time minutes (%s).\n", runMinutesString);
+      continue;
+    }
+
+    uint16_t startMinute = lround(startHour * 60);
+    if (startMinute >= MINUTES_IN_DAY)
+    {
+      fprintf(stderr, "Error: Invalid schedule start minute encountered (%" PRIu16 ").\n", startMinute);
+      continue;
+    }
+
+    for (int i = 0; i < runMinutes; i++)
+    {
+      int idx = (startMinute + i) % MINUTES_IN_DAY;
+      buffSched[idx] = true;
+    }
+  }
+
+  free(paramCopy);
+  return true;
+}
+
+
+static void print_schedule_chart(const bool *buffSched, size_t buffLen)
+{
+  if (buffSched == NULL || buffLen < MINUTES_IN_DAY)
+    return;
+
+  for (int i = 0; i < MINUTES_IN_DAY; i++)
+  {
+    if ((i > 0) && (i % 60 == 0))
+      printf("\n");
+
+    if (i % 60 == 0)
+      printf("%2d:", i / 60);
+
+    if (i % 10 == 0)
+      printf(" ");
+
+    printf("%d", buffSched[i]);
+  }
+
+  printf("\n");
 }
 
 
@@ -360,7 +473,7 @@ static void *thread_time_signal(void *arg)
   int modulation;
   struct timespec targetWait;
 
-  int32_t minuteOffset = round(threadData.hourOffset * 60);
+  int32_t minuteOffset = lround(threadData.hourOffset * 60);
 
   printf("Starting time signal thread...\n");
   printf("Time Service = %s\n", TimeServiceNames[threadData.timeService]);
@@ -369,6 +482,14 @@ static void *thread_time_signal(void *arg)
   printf("Disable Sanity Checks = %s\n", threadData.disableChecks ? "Yes" : "No");
   printf("\n");
   fflush(stdout);
+
+  if (_verbosityLevel >= 2)
+  {
+    printf("Run Schedule:\n");
+    print_schedule_chart(threadData.runSchedule, ARRAY_LENGTH(threadData.runSchedule));
+    printf("\n");
+    fflush(stdout);
+  }
 
   if (!gpio_init())
   {
@@ -400,6 +521,31 @@ static void *thread_time_signal(void *arg)
 
   while (_threadRun)
   {
+    localtime_r(&minuteStart, &timeParts);
+    long tzOffsetSeconds = timeParts.tm_gmtoff;
+    time_t offsetMinuteStart = minuteStart + tzOffsetSeconds;
+    int minuteOfDay = (offsetMinuteStart % SECONDS_IN_DAY) / 60;
+
+    if (_verbosityLevel >= 2)
+    {
+      printf("Minute Of Day = %d; Schedule Enabled = %d\n",
+             minuteOfDay, threadData.runSchedule[minuteOfDay]);
+    }
+
+    // When we aren't scheduled to run, turn off the
+    // clock output and wait until the next minute.
+    if (!threadData.runSchedule[minuteOfDay])
+    {
+      enable_clock_output(false);
+      minuteStart += 60;
+
+      targetWait.tv_sec = minuteStart;
+      targetWait.tv_nsec = 0;
+      clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &targetWait, NULL);
+
+      continue;
+    }
+
     if (_verbosityLevel >= 1)
     {
       localtime_r(&minuteStart, &timeParts);
