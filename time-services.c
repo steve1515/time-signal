@@ -104,8 +104,8 @@ uint64_t prepare_minute(enum TimeService service, time_t currentTime)
       // DCF77 bit order is LSB first.
       // Transmission will start from bit zero of the time bits string.
       timeBits = 0;
-      timeBits |= (timeParts.tm_isdst ? 1 : 0) << 17;
-      timeBits |= (timeParts.tm_isdst ? 0 : 1) << 18;
+      timeBits |= ((timeParts.tm_isdst > 0) ? 1 : 0) << 17;
+      timeBits |= ((timeParts.tm_isdst > 0) ? 0 : 1) << 18;
       timeBits |= (1 << 20);  // Start of encoded time - always 1
       timeBits |= to_bcd(timeParts.tm_min) << 21;
       timeBits |= to_bcd(timeParts.tm_hour) << 29;
@@ -164,7 +164,7 @@ uint64_t prepare_minute(enum TimeService service, time_t currentTime)
       bBits |= odd_parity(aBits, 59 - 35, 59 - 25) << (59 - 55);  // P2
       bBits |= odd_parity(aBits, 59 - 38, 59 - 36) << (59 - 56);  // P3
       bBits |= odd_parity(aBits, 59 - 51, 59 - 39) << (59 - 57);  // P4
-      bBits |= (timeParts.tm_isdst ? 1 : 0) << (59 - 58);
+      bBits |= ((timeParts.tm_isdst > 0) ? 1 : 0) << (59 - 58);
       // DUT bits (00 - 16) are not supported.
       // STW bit (53) is not supported.
 
@@ -190,8 +190,8 @@ uint64_t prepare_minute(enum TimeService service, time_t currentTime)
       localtime_r(&currentTime, &timeParts);
       localtime_r(&tomorrowTime, &tomorrowParts);
 
-      timeBits |= (tomorrowParts.tm_isdst ? 1 : 0) << (59 - 57);
-      timeBits |= (timeParts.tm_isdst ? 1 : 0) << (59 - 58);
+      timeBits |= ((tomorrowParts.tm_isdst > 0) ? 1 : 0) << (59 - 57);
+      timeBits |= ((timeParts.tm_isdst > 0) ? 1 : 0) << (59 - 58);
       break;
 
 
