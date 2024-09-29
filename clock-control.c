@@ -412,6 +412,7 @@ double start_clock(uint32_t requestedFrequency)
          divI + divF / 1024.0,
          _clockSources[bestClockSourceIndex].clockFrequency / (divI + divF / 1024.0));
 
+  fflush(stdout);
   return _clockSources[bestClockSourceIndex].clockFrequency / (divI + divF / 1024.0);
 }
 
