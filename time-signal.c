@@ -484,12 +484,8 @@ static void *thread_carrier_only(void *arg)
 static void *thread_time_signal(void *arg)
 {
   THREAD_DATA threadData = *(THREAD_DATA*)arg;
-  time_t currentTime;
-  time_t minuteStart;
   struct tm timeParts;
   char dateString[] = "1970-01-01 00:00:00";
-  uint64_t minuteBits;
-  int modulation;
   struct timespec targetWait;
 
   int32_t minuteOffset = lround(threadData.hourOffset * 60);
@@ -526,8 +522,8 @@ static void *thread_time_signal(void *arg)
 
   enable_clock_output(false);
 
-  currentTime = time(NULL);
-  minuteStart = currentTime - (currentTime % 60);  // Round down to start of minute
+  time_t currentTime = time(NULL);
+  time_t minuteStart = currentTime - (currentTime % 60);  // Round down to start of minute
 
   gmtime_r(&currentTime, &timeParts);
   if (!threadData.disableChecks && (timeParts.tm_year + 1900) < 2020)
@@ -583,7 +579,7 @@ static void *thread_time_signal(void *arg)
       fflush(stdout);
     }
 
-    minuteBits = prepare_minute(threadData.timeService, minuteStart + (minuteOffset * 60));
+    uint64_t minuteBits = prepare_minute(threadData.timeService, minuteStart + (minuteOffset * 60));
     if (minuteBits == (uint64_t)-1)
     {
       fprintf(stderr, "Error preparing minute bits.\n");
@@ -596,7 +592,7 @@ static void *thread_time_signal(void *arg)
       if (!_threadRun)
         break;
 
-      modulation = get_modulation_for_second(threadData.timeService, minuteBits, second);
+      int modulation = get_modulation_for_second(threadData.timeService, minuteBits, second);
       if (modulation < 0)
       {
         fprintf(stderr, "Error getting modulation time.\n");
